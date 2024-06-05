@@ -213,3 +213,18 @@ cnews_url = 'https://www.cnews.ru/archive/type_top_lenta_articles'
 links_1 = fetch_all_links(cnews_url, 1, 51)
 cnews_parser_1 = NewsParsing(cnews_url)
 news_df_1 = cnews_parser_1.parse_news(links_1)
+
+habr_url = 'https://habr.com/ru/news'
+links_2 = fetch_all_links(habr_url, 1, 51)
+cnews_parser_2 = NewsParsing(habr_url)
+news_df_2 = cnews_parser_2.parse_news(links_2)
+
+tadviser_url = 'https://www.tadviser.ru/index.php/Архив_новостей?cdate='
+links_3 = fetch_all_links(tadviser_url, 16, 32)
+cnews_parser_3 = NewsParsing(tadviser_url)
+news_df_3 = cnews_parser_3.parse_news(links_3)
+
+interfax_url = 'https://www.interfax.ru/news/2024/'
+links_4 = fetch_all_links(interfax_url, 5, 7)
+cnews_parser_4 = NewsParsing(interfax_url)
+news_df_4 = cnews_parser_4.parse_news(links_4)
