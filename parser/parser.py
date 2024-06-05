@@ -29,6 +29,28 @@ class NewsParsing:
             links = soup.find_all('a', href=True)
             if 'cnews' in self.base_url:
                 filtered_urls = [(link['href'], None) for link in links if link['href'].startswith('http://www.cnews.ru/news')]
+            elif 'habr' in self.base_url:
+                filtered_urls = [('https://habr.com' + link['href'], None) for link in links if
+                                 link['href'].startswith('/ru/news/') and not 'page' in link[
+                                     'href'] and not 'comment' in link['href'] and not link['href'].endswith(
+                                     '/ru/news/')]
+            elif 'tadviser' in self.base_url:
+                date_match = re.search(r'cdate=(\d{1,2})\.5\.2024', url)
+                date_str = date_match.group(1) if date_match else None
+                center_part = soup.find('div', class_='center_part')
+                if center_part and date_str:
+                    list_items = center_part.find_all('li')
+                    filtered_urls = [
+                        ('https://www.tadviser.ru' + unquote(link.find('a')['href']), f'{date_str}.05.2024') for link in
+                        list_items if link.find('a')['href'].startswith('/index.php/')]
+            elif 'interfax' in self.base_url:
+                filtered_urls = [('https://www.interfax.ru' + link['href'], None) for link in links if
+                                 link['href'].startswith('/digital/9') or link['href'].startswith(
+                                     '/business/9') or link in links if
+                                 link['href'].startswith('/russia/9') or link['href'].startswith('/world/9')]
+            elif 'theverge' in self.base_url:
+                filtered_urls = [('https://www.theverge.com' + link['href'], None) for link in links if
+                                 link['href'].startswith('/2024/')]
             else:
                 filtered_urls = []
             filtered_urls = list(set(filtered_urls))
@@ -59,6 +81,43 @@ class NewsParsing:
                     day = match.group(3)
                     time_published = f"{day}.{month}.{year}"
                 source = 'cnews'
+
+            elif 'habr' in self.base_url:
+                title = soup.find('meta', property='og:title')['content'] if soup.find('meta',
+                                                                                       property='og:title') else 'No title'
+                article_block = soup.find('div', class_='tm-article-body')
+                time_published = soup.find('meta', property='aiturec:datetime')['content'] if soup.find('meta',
+                                                                                                        property='aiturec:datetime') else None
+                date_pattern = re.compile(r'(\d{4})-(\d{2})-(\d{2})')
+                match = date_pattern.search(time_published)
+                if match:
+                    year = match.group(1)
+                    month = match.group(2)
+                    day = match.group(3)
+                    time_published = f"{day}.{month}.{year}"
+                source = 'habr'
+
+            elif 'tadviser' in self.base_url:
+                title = soup.find('h1').get_text(strip=True) if soup.find('h1') else 'No title'
+                article_block = soup.find('div', class_='js-mediator-article')
+                time_published = date
+                source = 'tadviser'
+
+            elif 'interfax' in self.base_url:
+                title = soup.find('meta', property='og:title')['content'] if soup.find('meta',
+                                                                                       property='og:title') else 'No title'
+                article_block = soup.find('article', itemprop='articleBody')
+                time_published = soup.find('meta', property="article:published_time")['content'] if soup.find('meta',
+                                                                                                              property="article:published_time") else None
+                date_pattern = re.compile(r'(\d{4})-(\d{2})-(\d{2})')
+                match = date_pattern.search(time_published)
+                if match:
+                    year = match.group(1)
+                    month = match.group(2)
+                    day = match.group(3)
+                    time_published = f"{day}.{month}.{year}"
+                source = 'interfax'
+                link = soup.find('link', rel='canonical').get('href')
 
             if not article_block:
                 return None
@@ -134,6 +193,20 @@ def fetch_all_links(base_url, start, end, step=1):
     with ThreadPoolExecutor(max_workers=10) as executor:
         if 'cnews' in base_url:
             futures = [executor.submit(NewsParsing(base_url).link_parsing, f"{base_url}/page_{i}") for i in range(start, end, step)]
+        elif 'habr' in base_url:
+            futures = [executor.submit(NewsParsing(base_url).link_parsing, f"{base_url}/page{i}/") for i in
+                       range(start, end, step)]
+        elif 'tadviser' in base_url:
+            futures = [executor.submit(NewsParsing(base_url).link_parsing, f"{base_url}{i}.5.2024") for i in
+                       range(start, end, step)]
+        elif 'interfax' in base_url:
+            futures = [executor.submit(NewsParsing(base_url).link_parsing, f"{base_url}{month}/{day}/all/page_{page}")
+                       for month, day, page in itertools.product(range(start, end), range(1, 32), range(1, 3))]
+        elif 'theverge' in base_url:
+            futures = [executor.submit(NewsParsing(base_url).link_parsing, f"{base_url}{i}") for i in
+                       range(start, end, step)]
+        for future in futures:
+            links.extend(future.result())
     return set(links)
 
 cnews_url = 'https://www.cnews.ru/archive/type_top_lenta_articles'
