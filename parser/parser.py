@@ -1,7 +1,6 @@
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
-from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import unquote
 from datetime import datetime
 import re
@@ -164,12 +163,11 @@ class NewsParsing:
     def parse_news(self, links):
         news_data = []
         k = 1
-        with ThreadPoolExecutor(max_workers=20) as executor:
-            results = executor.map(lambda x: self.fetch_news(*x), links)
-            for result in results:
-                if result:
-                    k+=1
-                    news_data.append(result)
+        for link in links:
+            result = self.fetch_news(*link)
+            if result:
+                k += 1
+                news_data.append(result)
 
         df = pd.DataFrame(news_data, columns=['source', 'url', 'title', 'time', 'keywords', 'text'])
         self.save_to_clickhouse(df)
@@ -209,23 +207,21 @@ class NewsParsing:
 
 def fetch_all_links(base_url, start, end, step=1):
     links = []
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        if 'cnews' in base_url:
-            futures = [executor.submit(NewsParsing(base_url).link_parsing, f"{base_url}/page_{i}") for i in range(start, end, step)]
-        elif 'habr' in base_url:
-            futures = [executor.submit(NewsParsing(base_url).link_parsing, f"{base_url}/page{i}/") for i in
-                       range(start, end, step)]
-        elif 'tadviser' in base_url:
-            futures = [executor.submit(NewsParsing(base_url).link_parsing, f"{base_url}{i}.5.2024") for i in
-                       range(start, end, step)]
-        elif 'interfax' in base_url:
-            futures = [executor.submit(NewsParsing(base_url).link_parsing, f"{base_url}{month}/{day}/all/page_{page}")
-                       for month, day, page in itertools.product(range(start, end), range(1, 32), range(1, 3))]
-        elif 'theverge' in base_url:
-            futures = [executor.submit(NewsParsing(base_url).link_parsing, f"{base_url}{i}") for i in
-                       range(start, end, step)]
-        for future in futures:
-            links.extend(future.result())
+    if 'cnews' in base_url:
+        for i in range(start, end, step):
+            links.extend(NewsParsing(base_url).link_parsing(f"{base_url}/page_{i}"))
+    elif 'habr' in base_url:
+        for i in range(start, end, step):
+            links.extend(NewsParsing(base_url).link_parsing(f"{base_url}/page{i}/"))
+    elif 'tadviser' in base_url:
+        for i in range(start, end, step):
+            links.extend(NewsParsing(base_url).link_parsing(f"{base_url}{i}.5.2024"))
+    elif 'interfax' in base_url:
+        for month, day, page in itertools.product(range(start, end), range(1, 32), range(1, 3)):
+            links.extend(NewsParsing(base_url).link_parsing(f"{base_url}{month}/{day}/all/page_{page}"))
+    elif 'theverge' in base_url:
+        for i in range(start, end, step):
+            links.extend(NewsParsing(base_url).link_parsing(f"{base_url}{i}"))
     return set(links)
 
 
