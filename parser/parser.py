@@ -8,6 +8,7 @@ import json
 import itertools
 import os
 from dotenv import load_dotenv
+from concurrent.futures import ThreadPoolExecutor
 
 load_dotenv()
 
@@ -207,21 +208,23 @@ class NewsParsing:
 
 def fetch_all_links(base_url, start, end, step=1):
     links = []
-    if 'cnews' in base_url:
-        for i in range(start, end, step):
-            links.extend(NewsParsing(base_url).link_parsing(f"{base_url}/page_{i}"))
-    elif 'habr' in base_url:
-        for i in range(start, end, step):
-            links.extend(NewsParsing(base_url).link_parsing(f"{base_url}/page{i}/"))
-    elif 'tadviser' in base_url:
-        for i in range(start, end, step):
-            links.extend(NewsParsing(base_url).link_parsing(f"{base_url}{i}.5.2024"))
-    elif 'interfax' in base_url:
-        for month, day, page in itertools.product(range(start, end), range(1, 32), range(1, 3)):
-            links.extend(NewsParsing(base_url).link_parsing(f"{base_url}{month}/{day}/all/page_{page}"))
-    elif 'theverge' in base_url:
-        for i in range(start, end, step):
-            links.extend(NewsParsing(base_url).link_parsing(f"{base_url}{i}"))
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        if 'cnews' in base_url:
+            futures = [executor.submit(NewsParsing(base_url).link_parsing, f"{base_url}/page_{i}") for i in range(start, end, step)]
+        elif 'habr' in base_url:
+            futures = [executor.submit(NewsParsing(base_url).link_parsing, f"{base_url}/page{i}/") for i in
+                       range(start, end, step)]
+        elif 'tadviser' in base_url:
+            futures = [executor.submit(NewsParsing(base_url).link_parsing, f"{base_url}{i}.5.2024") for i in
+                       range(start, end, step)]
+        elif 'interfax' in base_url:
+            futures = [executor.submit(NewsParsing(base_url).link_parsing, f"{base_url}{month}/{day}/all/page_{page}")
+                       for month, day, page in itertools.product(range(start, end), range(1, 32), range(1, 3))]
+        elif 'theverge' in base_url:
+            futures = [executor.submit(NewsParsing(base_url).link_parsing, f"{base_url}{i}") for i in
+                       range(start, end, step)]
+        for future in futures:
+            links.extend(future.result())
     return set(links)
 
 
