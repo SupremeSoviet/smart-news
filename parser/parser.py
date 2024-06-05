@@ -8,7 +8,9 @@ import re
 import json
 import itertools
 import os
-from clickhouse_driver import Client
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class NewsParsing:
     def __init__(self, base_url):
@@ -16,8 +18,29 @@ class NewsParsing:
         self.clickhouse_host = os.getenv('CLICKHOUSE_HOST')
         self.clickhouse_user = os.getenv('CLICKHOUSE_USER')
         self.clickhouse_password = os.getenv('CLICKHOUSE_PASSWORD')
-        self.clickhouse_port = os.getenv('CLICKHOUSE_PORT', 9000)
-        self.client = Client(host=self.clickhouse_host, user=self.clickhouse_user, password=self.clickhouse_password, port=self.clickhouse_port)
+        self.clickhouse_port = os.getenv('CLICKHOUSE_PORT')
+        self.cert_path = os.getenv('CLICKHOUSE_CERT_PATH')
+
+        try:
+            response = self.execute_query('SELECT version()')
+            print(f"Connection to ClickHouse established successfully: {response}")
+        except Exception as e:
+            print(f"Failed to connect to ClickHouse: {e}")
+
+    def execute_query(self, query):
+        response = requests.get(
+            f'https://{self.clickhouse_host}:{self.clickhouse_port}',
+            params={
+                'query': query,
+            },
+            headers={
+                'X-ClickHouse-User': f'{self.clickhouse_user}',
+                'X-ClickHouse-Key': f'{self.clickhouse_password}',
+            },
+            verify=f'{self.cert_path}'
+        )
+        response.raise_for_status()
+        return response.json()
 
     def link_parsing(self, url):
         filtered_urls = []
@@ -169,23 +192,19 @@ class NewsParsing:
         self.execute_query(create_table_query)
 
         existing_urls_query = 'SELECT url FROM news_bd'
-        existing_urls = self.execute_query(existing_urls_query)
-        existing_urls = {url[0] for url in existing_urls}
+        # existing_urls = self.execute_query(existing_urls_query)
+        # existing_urls = {url[0] for url in existing_urls}
 
-        new_records = [record for record in records if record['url'] not in existing_urls]
+        new_records = [record for record in records] #if record['url'] not in existing_urls]
 
         if new_records:
-            insert_query = 'INSERT INTO news_bd (source, url, title, time, keywords, text) VALUES'
-            self.client.execute(insert_query, new_records)
-
-    def execute_query(self, query, data=None):
-        try:
-            if data:
-                return self.client.execute(query, data)
-            else:
-                return self.client.execute(query)
-        except Exception as e:
-            return None
+            insert_query = 'INSERT INTO news_bd (source, url, title, time, keywords, text) VALUES '
+            values_list = [
+                f"('{record['source']}', '{record['url']}', '{record['title']}', '{record['time']}', '{record['keywords']}', '{record['text']}')"
+                for record in new_records
+            ]
+            full_query = insert_query + ", ".join(values_list)
+            self.execute_query(full_query)
 
 
 def fetch_all_links(base_url, start, end, step=1):
@@ -209,6 +228,8 @@ def fetch_all_links(base_url, start, end, step=1):
             links.extend(future.result())
     return set(links)
 
+
+# Example usage
 cnews_url = 'https://www.cnews.ru/archive/type_top_lenta_articles'
 links_1 = fetch_all_links(cnews_url, 1, 51)
 cnews_parser_1 = NewsParsing(cnews_url)
