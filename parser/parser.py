@@ -114,9 +114,9 @@ class NewsParsing:
                                  link['href'].startswith('/digital/9') or link['href'].startswith(
                                      '/business/9') or link in links if
                                  link['href'].startswith('/russia/9') or link['href'].startswith('/world/9')]
-            elif 'theverge' in self.base_url:
-                filtered_urls = [('https://www.theverge.com' + link['href'], None) for link in links if
-                                 link['href'].startswith('/2024/')]
+            elif 'metalinfo' in self.base_url:
+                filtered_urls = [('https://www.metalinfo.ru' + link['href'], None) for link in links if 
+                                 re.match(r'^/ru/news/\d+', link['href'])]
             else:
                 filtered_urls = []
             filtered_urls = list(set(filtered_urls))
@@ -185,6 +185,19 @@ class NewsParsing:
                 source = 'interfax'
                 link = soup.find('link', rel='canonical').get('href')
 
+            elif 'metalinfo' in self.base_url:
+                title = soup.find('h1').get_text(strip=True) if soup.find('h1') else 'No title'
+                article_block = soup.find('div', class_='news-body')
+                time_published = soup.find('meta', itemprop="datePublished")['content'] if soup.find('meta', itemprop="datePublished") else None
+                date_pattern = re.compile(r'(\d{4})-(\d{2})-(\d{2})')
+                match = date_pattern.search(time_published)
+                if match:
+                    year = match.group(1)
+                    month = match.group(2)
+                    day = match.group(3)
+                    time_published = f"{day}.{month}.{year}"
+                source = 'metalinfo'
+
             if not article_block:
                 return None
             text = ''
@@ -200,6 +213,10 @@ class NewsParsing:
             if 'Å' in text or 'æ' in text or 'µ' in text:
                 return None
             text = re.sub(r'Москва\.\s.*?INTERFAX\.RU\s-\s', '', text)
+            text = re.sub(r'[\u2000-\u200F]', ' ', text)
+            text = text.replace('\xa0',' ')
+            title = title.replace('\xa0',' ')
+            keywords = keywords.replace('\xa0',' ')
             return [source, link, title, time_published, keywords, text]
         except Exception as e:
             return None
@@ -227,39 +244,52 @@ def fetch_all_links(base_url, start, end, step=1):
         if 'cnews' in base_url:
             futures = [executor.submit(NewsParsing(base_url).link_parsing, f"{base_url}/page_{i}") for i in range(start, end, step)]
         elif 'habr' in base_url:
-            futures = [executor.submit(NewsParsing(base_url).link_parsing, f"{base_url}/page{i}/") for i in
-                       range(start, end, step)]
+            futures = [executor.submit(NewsParsing(base_url).link_parsing, f"{base_url}/page{i}/") for i in range(start, end, step)]
         elif 'tadviser' in base_url:
-            futures = [executor.submit(NewsParsing(base_url).link_parsing, f"{base_url}{i}.5.2024") for i in
-                       range(start, end, step)]
+            today = datetime.now()
+            dates = [(today - timedelta(days=i)).strftime("%-d.%-m.%Y") for i in range(start, end, step)]
+            futures = [executor.submit(NewsParsing(base_url).link_parsing, f"{base_url}{date}") for date in dates]
         elif 'interfax' in base_url:
-            futures = [executor.submit(NewsParsing(base_url).link_parsing, f"{base_url}{month}/{day}/all/page_{page}")
-                       for month, day, page in itertools.product(range(start, end), range(1, 32), range(1, 3))]
+            today = datetime.now()
+            date_combinations = [(today - timedelta(days=i)).strftime("%m/%d") for i in range(start, end, step)]
+            futures = [executor.submit(NewsParsing(base_url).link_parsing, f"{base_url}{date}/all/page_{page}") 
+                       for date, page in itertools.product(date_combinations, range(1, 3))]
+        elif 'metalinfo' in base_url:
+            futures = [executor.submit(NewsParsing(base_url).link_parsing, f"{base_url}list.html?pn={i}") for i in range(start, end, step)]
         elif 'theverge' in base_url:
-            futures = [executor.submit(NewsParsing(base_url).link_parsing, f"{base_url}{i}") for i in
-                       range(start, end, step)]
+            futures = [executor.submit(NewsParsing(base_url).link_parsing, f"{base_url}{i}") for i in range(start, end, step)]
         for future in futures:
             links.extend(future.result())
     return set(links)
 
+# Период для анализа: последние 5 дней
+days_to_analyze = 5
 
-# Example usage
+current_day = datetime.now().day
+current_month = datetime.now().month
+current_year = datetime.now().year
+
 cnews_url = 'https://www.cnews.ru/archive/type_top_lenta_articles'
-links_1 = fetch_all_links(cnews_url, 1, 51)
+links_1 = fetch_all_links(cnews_url, 1, 11)
 cnews_parser_1 = NewsParsing(cnews_url)
 news_df_1 = cnews_parser_1.parse_news(links_1)
 
 habr_url = 'https://habr.com/ru/news'
-links_2 = fetch_all_links(habr_url, 1, 51)
+links_2 = fetch_all_links(habr_url, 1, 11)
 cnews_parser_2 = NewsParsing(habr_url)
 news_df_2 = cnews_parser_2.parse_news(links_2)
 
 tadviser_url = 'https://www.tadviser.ru/index.php/Архив_новостей?cdate='
-links_3 = fetch_all_links(tadviser_url, 16, 32)
+links_3 = fetch_all_links(tadviser_url, 0, days_to_analyze)
 cnews_parser_3 = NewsParsing(tadviser_url)
 news_df_3 = cnews_parser_3.parse_news(links_3)
 
 interfax_url = 'https://www.interfax.ru/news/2024/'
-links_4 = fetch_all_links(interfax_url, 5, 7)
+links_4 = fetch_all_links(interfax_url, 0, days_to_analyze)
 cnews_parser_4 = NewsParsing(interfax_url)
 news_df_4 = cnews_parser_4.parse_news(links_4)
+
+metalinfo_url = 'https://www.metalinfo.ru/ru/news/'
+links_5 = fetch_all_links(metalinfo_url, 0, 11)
+cnews_parser_5 = NewsParsing(metalinfo_url)
+news_df_5 = cnews_parser_5.parse_news(links_5)
