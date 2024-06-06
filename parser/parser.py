@@ -209,7 +209,7 @@ class NewsParsing:
         k = 1
 
         if len(links) > 10:
-            links = set(list(links)[:30])
+            links = set(list(links)[:35])
 
         for link in links:
             result = self.fetch_news(*link)
