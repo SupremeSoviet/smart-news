@@ -28,7 +28,13 @@ jobs:
         context: ./parser
         file: ./parser/Dockerfile
         push: true
-        tags: ${{ secrets.DOCKER_LOGIN }}/smart-news:latest
+        tags: ${{ secrets.DOCKER_LOGIN }}/smart-news:latest 
+
+    - name: Install Yandex Cloud CLI
+      run: |
+        curl https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash
+        echo 'source ~/.bashrc' >> ~/.bash_profile
+        source ~/.bashrc
 
     - name: Configure Yandex Cloud CLI
       run: |
@@ -48,6 +54,12 @@ jobs:
     needs: build
 
     steps:
+    - name: Install Yandex Cloud CLI
+      run: |
+        curl https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash
+        echo 'source ~/.bashrc' >> ~/.bash_profile
+        source ~/.bashrc
+
     - name: Configure Yandex Cloud CLI
       run: |
         echo "${{ secrets.YC_SERVICE_ACCOUNT_KEY }}" > key.json
