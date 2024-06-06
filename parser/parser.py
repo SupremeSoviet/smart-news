@@ -9,6 +9,7 @@ import itertools
 import os
 from dotenv import load_dotenv
 from concurrent.futures import ThreadPoolExecutor
+import hashlib
 
 load_dotenv()
 
@@ -20,6 +21,8 @@ class NewsParsing:
         self.clickhouse_password = os.getenv('CLICKHOUSE_PASSWORD')
         self.clickhouse_port = os.getenv('CLICKHOUSE_PORT')
         self.cert_path = os.getenv('CLICKHOUSE_CERT_PATH')
+        self.db_name = os.getenv('CLICKHOUSE_DB_NAME')
+        self.table_name = os.getenv('CLICKHOUSE_TABLE_NAME')
 
         try:
             response = self.execute_query('SELECT version()')
@@ -39,8 +42,48 @@ class NewsParsing:
             },
             verify=f'{self.cert_path}'
         )
-        response.raise_for_status()
-        return response.json()
+        return response.text
+
+    def insert_dataframe(self, dataframe):
+        unique_urls = dataframe['url']
+        filtered_dataframe = dataframe.copy()
+
+        for url in unique_urls:
+            check_query = f"SELECT count() FROM {self.db_name}.{self.table_name} WHERE url = '{url}'"
+            result = self.execute_query(check_query)
+
+            if int(result.strip()) > 0:
+                print(f"Record with URL {url} already exists. Removing from dataframe.")
+                filtered_dataframe = filtered_dataframe[filtered_dataframe['url'] != url]
+
+        if not filtered_dataframe.empty:
+            first_url = filtered_dataframe.iloc[0]['url']
+            hash_object = hashlib.md5(first_url.encode())
+            file_name = f'{hash_object.hexdigest()}.csv'
+
+            filtered_dataframe.to_csv(file_name, index=False, header=False)
+
+            try:
+                with open(file_name, 'rb') as f:
+                    csv_data = f.read()
+
+                query = f'INSERT INTO {self.db_name}.{self.table_name} FORMAT CSV'
+                response = requests.post(
+                    f'https://{self.clickhouse_host}:{self.clickhouse_port}',
+                    params={'query': query},
+                    headers={
+                        'X-ClickHouse-User': self.clickhouse_user,
+                        'X-ClickHouse-Key': self.clickhouse_password,
+                    },
+                    data=csv_data,
+                    verify=self.cert_path
+                )
+                return response.text
+            finally:
+                if os.path.exists(file_name):
+                    os.remove(file_name)
+        else:
+            return "No new records to insert."
 
     def link_parsing(self, url):
         filtered_urls = []
@@ -164,6 +207,10 @@ class NewsParsing:
     def parse_news(self, links):
         news_data = []
         k = 1
+
+        if len(links) > 10:
+            links = set(list(links)[:10])
+
         for link in links:
             result = self.fetch_news(*link)
             if result:
@@ -171,40 +218,8 @@ class NewsParsing:
                 news_data.append(result)
 
         df = pd.DataFrame(news_data, columns=['source', 'url', 'title', 'time', 'keywords', 'text'])
-        self.save_to_clickhouse(df)
+        self.insert_dataframe(df)
         return df
-
-    def save_to_clickhouse(self, df):
-        records = df.to_dict('records')
-
-        create_table_query = '''
-            CREATE TABLE IF NOT EXISTS news_bd (
-                source String,
-                url String,
-                title String,
-                time String,
-                keywords String,
-                text String
-            ) ENGINE = MergeTree()
-            ORDER BY (source, url)
-        '''
-        self.execute_query(create_table_query)
-
-        existing_urls_query = 'SELECT url FROM news_bd'
-        # existing_urls = self.execute_query(existing_urls_query)
-        # existing_urls = {url[0] for url in existing_urls}
-
-        new_records = [record for record in records] #if record['url'] not in existing_urls]
-
-        if new_records:
-            insert_query = 'INSERT INTO news_bd (source, url, title, time, keywords, text) VALUES '
-            values_list = [
-                f"('{record['source']}', '{record['url']}', '{record['title']}', '{record['time']}', '{record['keywords']}', '{record['text']}')"
-                for record in new_records
-            ]
-            full_query = insert_query + ", ".join(values_list)
-            self.execute_query(full_query)
-
 
 def fetch_all_links(base_url, start, end, step=1):
     links = []
