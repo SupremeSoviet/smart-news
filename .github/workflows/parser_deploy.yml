@@ -25,7 +25,8 @@ jobs:
     - name: Build and push Docker image
       uses: docker/build-push-action@v2
       with:
-        context: .parser/
+        context: ./parser
+        file: ./parser/Dockerfile
         push: true
         tags: ${{ secrets.DOCKER_USERNAME }}/smart-news:latest
 
