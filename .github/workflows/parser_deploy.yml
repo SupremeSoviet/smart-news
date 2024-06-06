@@ -41,7 +41,7 @@ jobs:
     - name: Push to Yandex Cloud Container Registry
       run: |
         docker tag ${{ secrets.DOCKER_USERNAME }}/smart-news:latest cr.yandex/${{ secrets.YC_CONTAINER_REGISTRY }}/smartnews:latest
-        docker push cr.yandex/${{ secrets.YC_CONTAINER_REGISTRY }}/smart-news:latest
+        docker push cr.yandex/${{ secrets.YC_CONTAINER_REGISTRY }}/smartnews:latest
 
   deploy:
     runs-on: ubuntu-latest
