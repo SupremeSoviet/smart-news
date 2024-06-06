@@ -101,13 +101,13 @@ class NewsParsing:
                                      'href'] and not 'comment' in link['href'] and not link['href'].endswith(
                                      '/ru/news/')]
             elif 'tadviser' in self.base_url:
-                date_match = re.search(r'cdate=(\d{1,2})\.5\.2024', url)
-                date_str = date_match.group(1) if date_match else None
+                date_match = re.search(r'(\d{1,2})\.\d{1,2}\.\d{4}', url)
+                date_str = date_match.group(0) if date_match else None
                 center_part = soup.find('div', class_='center_part')
                 if center_part and date_str:
                     list_items = center_part.find_all('li')
                     filtered_urls = [
-                        ('https://www.tadviser.ru' + unquote(link.find('a')['href']), f'{date_str}.05.2024') for link in
+                        ('https://www.tadviser.ru' + unquote(link.find('a')['href']), date_str) for link in
                         list_items if link.find('a')['href'].startswith('/index.php/')]
             elif 'interfax' in self.base_url:
                 filtered_urls = [('https://www.interfax.ru' + link['href'], None) for link in links if
