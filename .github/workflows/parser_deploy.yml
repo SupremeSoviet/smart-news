@@ -28,7 +28,7 @@ jobs:
         context: ./parser
         file: ./parser/Dockerfile
         push: true
-        tags: ${{ secrets.DOCKER_LOGIN }}/smart-news:latest 
+        tags: ${{ secrets.DOCKER_LOGIN }}/smart-news:latest
 
     - name: Install Yandex Cloud CLI
       run: |
