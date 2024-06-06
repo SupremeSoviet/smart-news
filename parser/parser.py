@@ -256,8 +256,6 @@ def fetch_all_links(base_url, start, end, step=1):
                        for date, page in itertools.product(date_combinations, range(1, 3))]
         elif 'metalinfo' in base_url:
             futures = [executor.submit(NewsParsing(base_url).link_parsing, f"{base_url}list.html?pn={i}") for i in range(start, end, step)]
-        elif 'theverge' in base_url:
-            futures = [executor.submit(NewsParsing(base_url).link_parsing, f"{base_url}{i}") for i in range(start, end, step)]
         for future in futures:
             links.extend(future.result())
     return set(links)
