@@ -53,31 +53,24 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
 
-    - name: Install Yandex Cloud CLI
-      run: |
-        curl https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash -s -- -i ~/yandex-cloud-cli -n
-        echo 'export PATH=$HOME/yandex-cloud-cli/bin:$PATH' >> $GITHUB_ENV
-      shell: bash
-
-    - name: Login to Yandex Cloud
-      uses: yc-actions/yc-cr-login@v2
+    - name: Deploy Serverless Container
+      id: deploy-sls-container
+      uses: yc-actions/yc-sls-container-deploy@v1
       with:
         yc-sa-json-credentials: ${{ secrets.YC_SA_JSON_CREDENTIALS }}
-
-    - name: Deploy to Yandex Cloud Serverless Containers
-      run: |
-        yc serverless container revision deploy \
-          --container-id <YOUR_CONTAINER_ID> \
-          --image cr.yandex/${{ secrets.YC_CONTAINER_REGISTRY }}/smartnews:latest \
-          --memory 512M \
-          --cores 1 \
-          --execution-timeout 15m \
-          --concurrency 1 \
-          --environment CLICKHOUSE_HOST=${{ secrets.CLICKHOUSE_HOST }} \
-                        CLICKHOUSE_USER=${{ secrets.CLICKHOUSE_USER }} \
-                        CLICKHOUSE_PASSWORD=${{ secrets.CLICKHOUSE_PASSWORD }} \
-                        CLICKHOUSE_PORT=${{ secrets.CLICKHOUSE_PORT }} \
-                        CLICKHOUSE_DB_NAME=${{ secrets.CLICKHOUSE_DB_NAME }} \
-                        CLICKHOUSE_TABLE_NAME=${{ secrets.CLICKHOUSE_TABLE_NAME }}
-      env:
-        PATH: ${{ env.PATH }}:~/yandex-cloud-cli/bin
+        container-name: ntb-parser
+        folder-id: ${{ secrets.YC_FOLDER_ID }}
+        revision-service-account-id: ${{ secrets.YC_SERVICE_ACCOUNT_ID }}
+        revision-cores: 1
+        revision-memory: 512Mb
+        revision-core-fraction: 100
+        revision-concurrency: 1
+        revision-image-url: cr.yandex/${{ secrets.YC_CONTAINER_REGISTRY }}/smartnews:latest
+        revision-execution-timeout: 15m
+        environment-variables: |
+          CLICKHOUSE_HOST=${{ secrets.CLICKHOUSE_HOST }},
+          CLICKHOUSE_USER=${{ secrets.CLICKHOUSE_USER }},
+          CLICKHOUSE_PASSWORD=${{ secrets.CLICKHOUSE_PASSWORD }},
+          CLICKHOUSE_PORT=${{ secrets.CLICKHOUSE_PORT }},
+          CLICKHOUSE_DB_NAME=${{ secrets.CLICKHOUSE_DB_NAME }},
+          CLICKHOUSE_TABLE_NAME=${{ secrets.CLICKHOUSE_TABLE_NAME }}
