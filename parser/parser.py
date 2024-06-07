@@ -20,10 +20,17 @@ class NewsParsing:
         self.clickhouse_user = os.getenv('CLICKHOUSE_USER')
         self.clickhouse_password = os.getenv('CLICKHOUSE_PASSWORD')
         self.clickhouse_port = os.getenv('CLICKHOUSE_PORT')
-        self.cert_path = os.getenv('CLICKHOUSE_CERT_PATH')
+        self.cert_path = os.getenv('CLICKHOUSE_CERT_PATH', '/home/username/.yandex/RootCA.crt')
         self.db_name = os.getenv('CLICKHOUSE_DB_NAME')
         self.table_name = os.getenv('CLICKHOUSE_TABLE_NAME')
 
+        try:
+            directory = os.path.dirname('/home/username/.yandex/RootCA.crt')
+            root_folder = os.path.basename(directory)
+            print(root_folder)
+        except:
+            None
+        
         print(self.clickhouse_host, self.clickhouse_user, self.clickhouse_password, self.clickhouse_port, self.cert_path)
 
         
