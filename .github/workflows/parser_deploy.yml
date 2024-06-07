@@ -32,9 +32,10 @@ jobs:
 
     - name: Install Yandex Cloud CLI
       run: |
-        curl https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash -s -- -a
-        source ~/.bashrc
-        yc --version  # Проверка установки
+        curl https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash -s -- -i ~/yandex-cloud-cli -n
+        echo 'export PATH=$HOME/yandex-cloud-cli/bin:$PATH' >> $GITHUB_ENV
+        source $GITHUB_ENV
+        yc --version 
 
     - name: Configure Yandex Cloud CLI
       run: |
@@ -56,8 +57,9 @@ jobs:
     steps:
     - name: Install Yandex Cloud CLI
       run: |
-        curl https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash -s -- -a
-        source ~/.bashrc
+        curl https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash -s -- -i ~/yandex-cloud-cli -n
+        echo 'export PATH=$HOME/yandex-cloud-cli/bin:$PATH' >> $GITHUB_ENV
+        source $GITHUB_ENV
         yc --version  # Проверка установки
 
     - name: Configure Yandex Cloud CLI
