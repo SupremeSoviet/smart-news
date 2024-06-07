@@ -36,9 +36,13 @@ jobs:
       with:
         yc-sa-json-credentials: ${{ secrets.YC_SA_JSON_CREDENTIALS }}
 
-    - name: Build and tag Docker image
+    - name: Build and tag Docker image for Yandex Cloud
       run: |
         docker build -t cr.yandex/${{ secrets.YC_CONTAINER_REGISTRY }}/smartnews:latest ./parser
+
+    - name: Push Docker image to Yandex Cloud Container Registry
+      run: |
+        docker push cr.yandex/${{ secrets.YC_CONTAINER_REGISTRY }}/smartnews:latest
 
   deploy:
     runs-on: ubuntu-latest
