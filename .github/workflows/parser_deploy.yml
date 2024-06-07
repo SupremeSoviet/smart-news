@@ -62,7 +62,7 @@ jobs:
         revision-concurrency: 1
         revision-image-url: cr.yandex/${{ secrets.YC_CONTAINER_REGISTRY }}/smartnews:latest
         revision-execution-timeout: 15m
-        environment-variables: |
+        revision-env: |
           CLICKHOUSE_HOST=${{ secrets.CLICKHOUSE_HOST }},
           CLICKHOUSE_USER=${{ secrets.CLICKHOUSE_USER }},
           CLICKHOUSE_PASSWORD=${{ secrets.CLICKHOUSE_PASSWORD }},
