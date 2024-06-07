@@ -36,9 +36,9 @@ jobs:
         echo 'export PATH=$HOME/yandex-cloud-cli/bin:$PATH' >> $GITHUB_ENV
       shell: bash
 
-    - name: Configure Yandex Cloud CLI
+    - name: Decode and Configure Yandex Cloud CLI
       run: |
-        echo "${{ secrets.YC_SERVICE_ACCOUNT_KEY }}" > key.json
+        echo "${{ secrets.YC_SERVICE_ACCOUNT_KEY }}" | base64 --decode > key.json
         yc config set service-account-key key.json
       env:
         PATH: ${{ env.PATH }}:~/yandex-cloud-cli/bin
@@ -66,9 +66,9 @@ jobs:
         echo 'export PATH=$HOME/yandex-cloud-cli/bin:$PATH' >> $GITHUB_ENV
       shell: bash
 
-    - name: Configure Yandex Cloud CLI
+    - name: Decode and Configure Yandex Cloud CLI
       run: |
-        echo "${{ secrets.YC_SERVICE_ACCOUNT_KEY }}" > key.json
+        echo "${{ secrets.YC_SERVICE_ACCOUNT_KEY }}" | base64 --decode > key.json
         yc config set service-account-key key.json
       env:
         PATH: ${{ env.PATH }}:~/yandex-cloud-cli/bin
