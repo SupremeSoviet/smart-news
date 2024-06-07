@@ -35,13 +35,9 @@ jobs:
         curl https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash -s -- -i ~/yandex-cloud-cli -n
         echo 'export PATH=$HOME/yandex-cloud-cli/bin:$PATH' >> $GITHUB_ENV
       shell: bash
-
-    - name: Install base64 utility
-      run: sudo apt-get update && sudo apt-get install -y coreutils
-
     - name: Decode and Configure Yandex Cloud CLI
       run: |
-        echo "${{ secrets.YC_SERVICE_ACCOUNT_KEY_BASE64 }}" | base64 --decode > key.json
+        echo "${{ secrets.YC_SERVICE_ACCOUNT_KEY_BASE64 }}" > key.json
         yc config set service-account-key key.json
       env:
         PATH: ${{ env.PATH }}:~/yandex-cloud-cli/bin
