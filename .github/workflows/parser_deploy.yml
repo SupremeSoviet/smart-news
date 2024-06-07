@@ -64,10 +64,10 @@ jobs:
       with:
         yc-sa-json-credentials: ${{ secrets.YC_SA_JSON_CREDENTIALS }}
 
-    - name: Deploy to Yandex Cloud
+    - name: Deploy to Yandex Cloud Serverless Containers
       run: |
         yc serverless container revision deploy \
-          --container-name smartnews \
+          --container-id <YOUR_CONTAINER_ID> \
           --image cr.yandex/${{ secrets.YC_CONTAINER_REGISTRY }}/smartnews:latest \
           --memory 512M \
           --cores 1 \
