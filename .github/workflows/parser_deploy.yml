@@ -22,7 +22,7 @@ jobs:
         username: ${{ secrets.DOCKER_LOGIN }}
         password: ${{ secrets.DOCKER_PASSWORD }}
 
-    - name: Build and push Docker image
+    - name: Build and push Docker image to DockerHub
       uses: docker/build-push-action@v2
       with:
         context: ./parser
@@ -30,55 +30,39 @@ jobs:
         push: true
         tags: ${{ secrets.DOCKER_LOGIN }}/smart-news:latest
 
-    - name: Install Yandex Cloud CLI
-      run: |
-        curl https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash -s -- -i ~/yandex-cloud-cli -n
-        echo 'export PATH=$HOME/yandex-cloud-cli/bin:$PATH' >> $GITHUB_ENV
-      shell: bash
-    - name: Decode and Configure Yandex Cloud CLI
-      run: |
-        echo "${{ secrets.YC_SERVICE_ACCOUNT_KEY_BASE64 }}" > key.json
-        yc config set service-account-key key.json
-      env:
-        PATH: ${{ env.PATH }}:~/yandex-cloud-cli/bin
+    - name: Login to Yandex Cloud Container Registry
+      id: login-cr
+      uses: yc-actions/yc-cr-login@v2
+      with:
+        yc-sa-json-credentials: ${{ secrets.YC_SA_JSON_CREDENTIALS }}
 
-    - name: Configure Docker for Yandex Cloud
-      run: yc container registry configure-docker
+    - name: Build, tag, and push image to Yandex Cloud Container Registry
       env:
-        PATH: ${{ env.PATH }}:~/yandex-cloud-cli/bin
-
-    - name: Push to Yandex Cloud Container Registry
+        CR_REGISTRY: ${{ secrets.YC_CONTAINER_REGISTRY }}
+        CR_REPOSITORY: smartnews
+        IMAGE_TAG: latest
       run: |
-        docker tag ${{ secrets.DOCKER_LOGIN }}/smart-news:latest cr.yandex/${{ secrets.YC_CONTAINER_REGISTRY }}/smartnews:latest
-        docker push cr.yandex/${{ secrets.YC_CONTAINER_REGISTRY }}/smartnews:latest
-      env:
-        PATH: ${{ env.PATH }}:~/yandex-cloud-cli/bin
+        docker build -t cr.yandex/$CR_REGISTRY/$CR_REPOSITORY:$IMAGE_TAG ./parser
+        docker push cr.yandex/$CR_REGISTRY/$CR_REPOSITORY:$IMAGE_TAG
 
   deploy:
     runs-on: ubuntu-latest
     needs: build
 
     steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
     - name: Install Yandex Cloud CLI
       run: |
         curl https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash -s -- -i ~/yandex-cloud-cli -n
         echo 'export PATH=$HOME/yandex-cloud-cli/bin:$PATH' >> $GITHUB_ENV
       shell: bash
 
-    - name: Install base64 utility
-      run: sudo apt-get update && sudo apt-get install -y coreutils
-
-    - name: Decode and Configure Yandex Cloud CLI
-      run: |
-        echo "${{ secrets.YC_SERVICE_ACCOUNT_KEY_BASE64 }}" | base64 --decode > key.json
-        yc config set service-account-key key.json
-      env:
-        PATH: ${{ env.PATH }}:~/yandex-cloud-cli/bin
-
-    - name: Configure Docker for Yandex Cloud
-      run: yc container registry configure-docker
-      env:
-        PATH: ${{ env.PATH }}:~/yandex-cloud-cli/bin
+    - name: Login to Yandex Cloud
+      uses: yc-actions/yc-cr-login@v2
+      with:
+        yc-sa-json-credentials: ${{ secrets.YC_SA_JSON_CREDENTIALS }}
 
     - name: Deploy to Yandex Cloud
       run: |
