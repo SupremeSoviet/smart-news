@@ -34,21 +34,26 @@ jobs:
       run: |
         curl https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash -s -- -i ~/yandex-cloud-cli -n
         echo 'export PATH=$HOME/yandex-cloud-cli/bin:$PATH' >> $GITHUB_ENV
-        source $GITHUB_ENV
-        yc --version 
+      shell: bash
 
     - name: Configure Yandex Cloud CLI
       run: |
         echo "${{ secrets.YC_SERVICE_ACCOUNT_KEY }}" > key.json
         yc config set service-account-key key.json
+      env:
+        PATH: ${{ env.PATH }}:~/yandex-cloud-cli/bin
 
     - name: Configure Docker for Yandex Cloud
       run: yc container registry configure-docker
+      env:
+        PATH: ${{ env.PATH }}:~/yandex-cloud-cli/bin
 
     - name: Push to Yandex Cloud Container Registry
       run: |
         docker tag ${{ secrets.DOCKER_LOGIN }}/smart-news:latest cr.yandex/${{ secrets.YC_CONTAINER_REGISTRY }}/smartnews:latest
         docker push cr.yandex/${{ secrets.YC_CONTAINER_REGISTRY }}/smartnews:latest
+      env:
+        PATH: ${{ env.PATH }}:~/yandex-cloud-cli/bin
 
   deploy:
     runs-on: ubuntu-latest
@@ -59,16 +64,19 @@ jobs:
       run: |
         curl https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash -s -- -i ~/yandex-cloud-cli -n
         echo 'export PATH=$HOME/yandex-cloud-cli/bin:$PATH' >> $GITHUB_ENV
-        source $GITHUB_ENV
-        yc --version  # Проверка установки
+      shell: bash
 
     - name: Configure Yandex Cloud CLI
       run: |
         echo "${{ secrets.YC_SERVICE_ACCOUNT_KEY }}" > key.json
         yc config set service-account-key key.json
+      env:
+        PATH: ${{ env.PATH }}:~/yandex-cloud-cli/bin
 
     - name: Configure Docker for Yandex Cloud
       run: yc container registry configure-docker
+      env:
+        PATH: ${{ env.PATH }}:~/yandex-cloud-cli/bin
 
     - name: Deploy to Yandex Cloud
       run: |
@@ -85,3 +93,5 @@ jobs:
                         CLICKHOUSE_PORT=${{ secrets.CLICKHOUSE_PORT }} \
                         CLICKHOUSE_DB_NAME=${{ secrets.CLICKHOUSE_DB_NAME }} \
                         CLICKHOUSE_TABLE_NAME=${{ secrets.CLICKHOUSE_TABLE_NAME }}
+      env:
+        PATH: ${{ env.PATH }}:~/yandex-cloud-cli/bin
