@@ -54,14 +54,14 @@ class NewsParsing:
         self.db_name = os.getenv('CLICKHOUSE_DB_NAME')
         self.table_name = os.getenv('CLICKHOUSE_TABLE_NAME')
 
-        # print(self.clickhouse_host, self.clickhouse_user, self.clickhouse_password, self.clickhouse_port, self.cert_path)
+        print(self.clickhouse_host, self.clickhouse_user, self.clickhouse_password, self.clickhouse_port, self.cert_path)
         
         try:
             response = self.execute_query('SELECT version()')
-            # print(f"Connection to ClickHouse established successfully: {response}")
+            print(f"Connection to ClickHouse established successfully: {response}")
         except Exception as e:
             pass
-            # print(f"Failed to connect to ClickHouse: {e}")
+            print(f"Failed to connect to ClickHouse: {e}")
 
     def execute_query(self, query):
         response = requests.get(
