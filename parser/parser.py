@@ -307,6 +307,7 @@ links_1 = fetch_all_links(cnews_url, 1, 11)
 cnews_parser_1 = NewsParsing(cnews_url)
 news_df_1 = cnews_parser_1.parse_news(links_1)
 
+
 # habr_url = 'https://habr.com/ru/news'
 # links_2 = fetch_all_links(habr_url, 1, 11)
 # cnews_parser_2 = NewsParsing(habr_url)
