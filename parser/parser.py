@@ -1,17 +1,47 @@
-import requests
-from bs4 import BeautifulSoup
-import pandas as pd
-from urllib.parse import unquote
-from datetime import datetime
-import re
-import json
-import itertools
 import os
-from dotenv import load_dotenv
-from concurrent.futures import ThreadPoolExecutor
+import re
+import ssl
 import hashlib
+import certifi
+import requests
+import itertools
+import pandas as pd
+
+from datetime import datetime
+from bs4 import BeautifulSoup
+from dotenv import load_dotenv
+from datetime import timedelta
+from urllib.parse import unquote
+from concurrent.futures import ThreadPoolExecutor
 
 load_dotenv()
+
+def download_certificate(url, save_path):
+    response = requests.get(url)
+    with open(save_path, 'wb') as file:
+        file.write(response.content)
+
+
+def install_certificates(cert_dir):
+    os.makedirs(cert_dir, exist_ok=True)
+
+    root_ca_url = "https://storage.yandexcloud.net/cloud-certs/RootCA.pem"
+    intermediate_ca_url = "https://storage.yandexcloud.net/cloud-certs/IntermediateCA.pem"
+
+    root_ca_path = os.path.join(cert_dir, "RootCA.pem")
+    intermediate_ca_path = os.path.join(cert_dir, "IntermediateCA.pem")
+
+    download_certificate(root_ca_url, root_ca_path)
+    download_certificate(intermediate_ca_url, intermediate_ca_path)
+
+    ssl_context = ssl.create_default_context(cafile=certifi.where())
+    ssl_context.load_verify_locations(root_ca_path)
+    ssl_context.load_verify_locations(intermediate_ca_path)
+
+    return ssl_context
+
+cert_dir = 'certs'
+install_certificates(cert_dir)
 
 class NewsParsing:
     def __init__(self, base_url):
@@ -20,25 +50,18 @@ class NewsParsing:
         self.clickhouse_user = os.getenv('CLICKHOUSE_USER')
         self.clickhouse_password = os.getenv('CLICKHOUSE_PASSWORD')
         self.clickhouse_port = os.getenv('CLICKHOUSE_PORT')
-        self.cert_path = os.getenv('CLICKHOUSE_CERT_PATH', '/home/username/.yandex/RootCA.crt')
+        self.cert_path = cert_dir + '/RootCA.pem'
         self.db_name = os.getenv('CLICKHOUSE_DB_NAME')
         self.table_name = os.getenv('CLICKHOUSE_TABLE_NAME')
 
-        try:
-            directory = os.path.dirname('/home/username/.yandex/RootCA.crt')
-            root_folder = os.path.basename(directory)
-            print(root_folder)
-        except:
-            None
-        
-        print(self.clickhouse_host, self.clickhouse_user, self.clickhouse_password, self.clickhouse_port, self.cert_path)
-
+        # print(self.clickhouse_host, self.clickhouse_user, self.clickhouse_password, self.clickhouse_port, self.cert_path)
         
         try:
             response = self.execute_query('SELECT version()')
-            print(f"Connection to ClickHouse established successfully: {response}")
+            # print(f"Connection to ClickHouse established successfully: {response}")
         except Exception as e:
-            print(f"Failed to connect to ClickHouse: {e}")
+            pass
+            # print(f"Failed to connect to ClickHouse: {e}")
 
     def execute_query(self, query):
         response = requests.get(
@@ -54,7 +77,8 @@ class NewsParsing:
         )
         return response.text
 
-    def insert_dataframe(self, dataframe):
+    def insert_dataframe(self, dataframe, source):
+        print(f'start inserting news from {source}')
         unique_urls = dataframe['url']
         filtered_dataframe = dataframe.copy()
 
@@ -88,6 +112,7 @@ class NewsParsing:
                     data=csv_data,
                     verify=self.cert_path
                 )
+                print(f'inserting news from {source} finished {response.text}')
                 return response.text
             finally:
                 if os.path.exists(file_name):
@@ -245,7 +270,7 @@ class NewsParsing:
                 news_data.append(result)
 
         df = pd.DataFrame(news_data, columns=['source', 'url', 'title', 'time', 'keywords', 'text'])
-        self.insert_dataframe(df)
+        self.insert_dataframe(df, df.iloc[0, 0])
         return df
 
 def fetch_all_links(base_url, start, end, step=1):
