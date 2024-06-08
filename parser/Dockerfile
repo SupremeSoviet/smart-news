@@ -12,17 +12,6 @@ RUN apt-get update && \
     apt-get install -y wget ca-certificates && \
     pip install --no-cache-dir -r requirements.txt
 
-# Install ClickHouse certificates
-RUN mkdir --parents /usr/local/share/ca-certificates/Yandex && \
-    wget "https://storage.yandexcloud.net/cloud-certs/RootCA.pem" \
-    --output-document /usr/local/share/ca-certificates/Yandex/RootCA.crt && \
-    wget "https://storage.yandexcloud.net/cloud-certs/IntermediateCA.pem" \
-    --output-document /usr/local/share/ca-certificates/Yandex/IntermediateCA.crt && \
-    chmod 655 \
-    /usr/local/share/ca-certificates/Yandex/RootCA.crt \
-    /usr/local/share/ca-certificates/Yandex/IntermediateCA.crt && \
-    update-ca-certificates
-
 # Copy the rest of the working directory contents into the container at /app
 COPY . .
 
