@@ -79,16 +79,27 @@ class NewsParsing:
 
     def insert_dataframe(self, dataframe, source):
         print(f'start inserting news from {source}')
+        print(f'sample: {dataframe.iloc[0, :]}')
         unique_urls = dataframe['url']
         filtered_dataframe = dataframe.copy()
 
+        print(unique_urls[:10 if len(unique_urls) > 10 else len(unique_urls)])
+
         for url in unique_urls:
+            self.execute_query('SELECT 1')
+
+            print('executed SELECT 1 query')
+
             check_query = f"SELECT count() FROM {self.db_name}.{self.table_name} WHERE url = '{url}'"
             result = self.execute_query(check_query)
+
+            print('executed check_query')
 
             if int(result.strip()) > 0:
                 print(f"Record with URL {url} already exists. Removing from dataframe.")
                 filtered_dataframe = filtered_dataframe[filtered_dataframe['url'] != url]
+
+        print('checked unique urls')
 
         if not filtered_dataframe.empty:
             first_url = filtered_dataframe.iloc[0]['url']
