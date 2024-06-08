@@ -307,22 +307,22 @@ links_1 = fetch_all_links(cnews_url, 1, 11)
 cnews_parser_1 = NewsParsing(cnews_url)
 news_df_1 = cnews_parser_1.parse_news(links_1)
 
-habr_url = 'https://habr.com/ru/news'
-links_2 = fetch_all_links(habr_url, 1, 11)
-cnews_parser_2 = NewsParsing(habr_url)
-news_df_2 = cnews_parser_2.parse_news(links_2)
-
-tadviser_url = 'https://www.tadviser.ru/index.php/Архив_новостей?cdate='
-links_3 = fetch_all_links(tadviser_url, 0, days_to_analyze)
-cnews_parser_3 = NewsParsing(tadviser_url)
-news_df_3 = cnews_parser_3.parse_news(links_3)
-
-interfax_url = 'https://www.interfax.ru/news/2024/'
-links_4 = fetch_all_links(interfax_url, 0, days_to_analyze)
-cnews_parser_4 = NewsParsing(interfax_url)
-news_df_4 = cnews_parser_4.parse_news(links_4)
-
-metalinfo_url = 'https://www.metalinfo.ru/ru/news/'
-links_5 = fetch_all_links(metalinfo_url, 0, 11)
-cnews_parser_5 = NewsParsing(metalinfo_url)
-news_df_5 = cnews_parser_5.parse_news(links_5)
+# habr_url = 'https://habr.com/ru/news'
+# links_2 = fetch_all_links(habr_url, 1, 11)
+# cnews_parser_2 = NewsParsing(habr_url)
+# news_df_2 = cnews_parser_2.parse_news(links_2)
+#
+# tadviser_url = 'https://www.tadviser.ru/index.php/Архив_новостей?cdate='
+# links_3 = fetch_all_links(tadviser_url, 0, days_to_analyze)
+# cnews_parser_3 = NewsParsing(tadviser_url)
+# news_df_3 = cnews_parser_3.parse_news(links_3)
+#
+# interfax_url = 'https://www.interfax.ru/news/2024/'
+# links_4 = fetch_all_links(interfax_url, 0, days_to_analyze)
+# cnews_parser_4 = NewsParsing(interfax_url)
+# news_df_4 = cnews_parser_4.parse_news(links_4)
+#
+# metalinfo_url = 'https://www.metalinfo.ru/ru/news/'
+# links_5 = fetch_all_links(metalinfo_url, 0, 11)
+# cnews_parser_5 = NewsParsing(metalinfo_url)
+# news_df_5 = cnews_parser_5.parse_news(links_5)
