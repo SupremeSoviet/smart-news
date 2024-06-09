@@ -73,3 +73,5 @@ jobs:
           CLICKHOUSE_PORT=${{ secrets.CLICKHOUSE_PORT }}
           CLICKHOUSE_DB_NAME=${{ secrets.CLICKHOUSE_DB_NAME }}
           CLICKHOUSE_TABLE_NAME=${{ secrets.CLICKHOUSE_TABLE_NAME }}
+          FOLDER_ID=${{ secrets.FOLDER_ID }}
+          API_KEY=${{ secrets.API_KEY }}

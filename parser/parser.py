@@ -1,6 +1,7 @@
 import os
 import re
 import ssl
+import json
 import hashlib
 import certifi
 import requests
@@ -40,13 +41,12 @@ def install_certificates(cert_dir):
 
     return ssl_context
 
-API_KEY = '*****'
-folder_id = '*****'
-target_language = 'ru'
+folder_id = os.getenv('FOLDER_ID')
+API_KEY = os.getenv('API_KEY')
 
-def tr_AN_sl_A_tor_of_L_abels(txt: str):
+def translate(txt: str):
     body = {
-        "targetLanguageCode": target_language,
+        "targetLanguageCode": 'ru',
         "texts": [txt],
         "folderId": folder_id,
         "sourceLanguageCode": "en"
@@ -103,7 +103,6 @@ class NewsParsing:
 
     def insert_dataframe(self, dataframe, source):
         print(f'start inserting news from {source}')
-        print(f'sample: {dataframe.iloc[0, :]}')
         unique_urls = dataframe['url']
         filtered_dataframe = dataframe.copy()
 
@@ -297,8 +296,8 @@ class NewsParsing:
                 title = title.replace('\xa0',' ').replace('| TechCrunch', '').replace('\n', ' ')
                 if not 'No title' in title:
                     text = re.sub(r'\[.*?\]', '', text)
-                    text = tr_AN_sl_A_tor_of_L_abels(text)
-                    title = tr_AN_sl_A_tor_of_L_abels(title)
+                    text = translate(text)
+                    title = translate(title)
                     print(link, title)
                     return [source, link, title, time_published, None, text]
                 else:
@@ -336,9 +335,6 @@ class NewsParsing:
             text = ''
             paragraphs = article_block.find_all('p')
             for paragraph in paragraphs:
-                if len(text) > 5000:
-                    text = text[:5000]
-                    break
                 paragraph_text = paragraph.get_text(strip=True) if not paragraph.find('a') else ' '.join([text for text in paragraph.stripped_strings])
                 text += ' ' + paragraph_text
             keywords = soup.find('meta', attrs={'name': 'keywords'}).get('content') if soup.find('meta', attrs={'name': 'keywords'}) else ''
@@ -351,19 +347,15 @@ class NewsParsing:
             title = title.replace('\xa0',' ')
             keywords = keywords.replace('\xa0',' ')
             if 'techcrunch' in self.base_url or 'technode' in self.base_url:
-                text = tr_AN_sl_A_tor_of_L_abels(text)
-                title = tr_AN_sl_A_tor_of_L_abels(title)
-                keywords = tr_AN_sl_A_tor_of_L_abels(keywords)
+                text = translate(text)
+                title = translate(title)
+                keywords = translate(keywords)
             return [source, link, title, time_published, keywords, text]
         except Exception as e:
             return None
-
     def parse_news(self, links):
         news_data = []
         k = 1
-
-        if len(links) > 10:
-            links = set(list(links)[:35])
 
         for link in links:
             result = self.fetch_news(*link)
@@ -371,7 +363,9 @@ class NewsParsing:
                 k += 1
                 news_data.append(result)
 
+
         df = pd.DataFrame(news_data, columns=['source', 'url', 'title', 'time', 'keywords', 'text'])
+        df.to_csv('test.csv', index=False)
         self.insert_dataframe(df, df.iloc[0, 0])
         return df
 
@@ -389,8 +383,7 @@ def fetch_all_links(base_url, start, end, step=1):
         elif 'interfax' in base_url:
             today = datetime.now()
             date_combinations = [(today - timedelta(days=i)).strftime("%m/%d") for i in range(start, end, step)]
-            futures = [executor.submit(NewsParsing(base_url).link_parsing, f"{base_url}{date}/all/page_{page}") 
-                       for date, page in itertools.product(date_combinations, range(1, 3))]
+            futures = [executor.submit(NewsParsing(base_url).link_parsing, f"{base_url}{date}/all/page_{page}") for date, page in itertools.product(date_combinations, range(1, 3))]
         elif 'metalinfo' in base_url:
             futures = [executor.submit(NewsParsing(base_url).link_parsing, f"{base_url}list.html?pn={i}") for i in range(start, end, step)]
         elif 'theverge' in base_url:
@@ -403,7 +396,6 @@ def fetch_all_links(base_url, start, end, step=1):
             links.extend(future.result())
     return set(links)
 
-# Период для анализа: последние 5 дней
 days_to_analyze = 5
 
 current_day = datetime.now().day
@@ -411,19 +403,19 @@ current_month = datetime.now().month
 current_year = datetime.now().year
 
 cnews_url = 'https://www.cnews.ru/archive/type_top_lenta_articles'
-links_1 = fetch_all_links(cnews_url, 1, 11)
+links_1 = fetch_all_links(cnews_url, 1, 3)
 news_parser_1 = NewsParsing(cnews_url)
 news_df_1 = news_parser_1.parse_news(links_1)
 
 habr_url = 'https://habr.com/ru/news'
-links_2 = fetch_all_links(habr_url, 1, 11)
+links_2 = fetch_all_links(habr_url, 1, 3)
 news_parser_2 = NewsParsing(habr_url)
 news_df_2 = news_parser_2.parse_news(links_2)
 
-tadviser_url = 'https://www.tadviser.ru/index.php/Архив_новостей?cdate='
-links_3 = fetch_all_links(tadviser_url, 0, days_to_analyze)
-news_parser_3 = NewsParsing(tadviser_url)
-news_df_3 = news_parser_3.parse_news(links_3)
+# tadviser_url = 'https://www.tadviser.ru/index.php/Архив_новостей?cdate='
+# links_3 = fetch_all_links(tadviser_url, 0, days_to_analyze)
+# news_parser_3 = NewsParsing(tadviser_url)
+# news_df_3 = news_parser_3.parse_news(links_3)
 
 interfax_url = 'https://www.interfax.ru/news/2024/'
 links_4 = fetch_all_links(interfax_url, 0, days_to_analyze)
@@ -431,21 +423,21 @@ news_parser_4 = NewsParsing(interfax_url)
 news_df_4 = news_parser_4.parse_news(links_4)
 
 metalinfo_url = 'https://www.metalinfo.ru/ru/news/'
-links_5 = fetch_all_links(metalinfo_url, 0, 11)
+links_5 = fetch_all_links(metalinfo_url, 0, 3)
 news_parser_5 = NewsParsing(metalinfo_url)
 news_df_5 = news_parser_5.parse_news(links_5)
 
 theverge_url = 'https://www.theverge.com/archives/'
-links_6 = fetch_all_links(theverge_url, 1, 4)
+links_6 = fetch_all_links(theverge_url, 1, 3)
 news_parser_6 = NewsParsing(theverge_url)
 news_df_6 = news_parser_6.parse_news(links_6)
 
-technode_url = 'https://technode.com/category/news-feed/'
-links_7 = fetch_all_links(technode_url, 1, 3)
-news_parser_7 = NewsParsing(technode_url)
-news_df_7 = news_parser_7.parse_news(links_7)
+# technode_url = 'https://technode.com/category/news-feed/'
+# links_7 = fetch_all_links(technode_url, 1, 3)
+# news_parser_7 = NewsParsing(technode_url)
+# news_df_7 = news_parser_7.parse_news(links_7)
 
-techcrunch_url = 'https://techcrunch.com'
-links_8 = fetch_all_links(techcrunch_url, 1, 3)
-news_parser_8 = NewsParsing(techcrunch_url)
-news_df_8 = news_parser_8.parse_news(links_8)
+# techcrunch_url = 'https://techcrunch.com'
+# links_8 = fetch_all_links(techcrunch_url, 1, 3)
+# news_parser_8 = NewsParsing(techcrunch_url)
+# news_df_8 = news_parser_8.parse_news(links_8)
