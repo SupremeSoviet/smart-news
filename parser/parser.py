@@ -40,6 +40,30 @@ def install_certificates(cert_dir):
 
     return ssl_context
 
+API_KEY = '*****'
+folder_id = '*****'
+target_language = 'ru'
+
+def tr_AN_sl_A_tor_of_L_abels(txt: str):
+    body = {
+        "targetLanguageCode": target_language,
+        "texts": [txt],
+        "folderId": folder_id,
+        "sourceLanguageCode": "en"
+        }
+
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": "Api-key {0}".format(API_KEY)
+        }
+
+    response = requests.post('https://translate.api.cloud.yandex.net/translate/v2/translate',
+    json = body,
+    headers = headers
+    )
+
+    return response.json()['translations'][0]['text']
+
 cert_dir = 'certs'
 install_certificates(cert_dir)
 
@@ -163,6 +187,13 @@ class NewsParsing:
             elif 'metalinfo' in self.base_url:
                 filtered_urls = [('https://www.metalinfo.ru' + link['href'], None) for link in links if 
                                  re.match(r'^/ru/news/\d+', link['href'])]
+            elif 'theverge' in self.base_url:
+                filtered_urls = [('https://www.theverge.com' + link['href'], None) for link in links if 
+                                 link['href'].startswith('/2024/') and not 'Comments' in link['href']]
+            elif 'technode' in self.base_url:
+                filtered_urls = [(link['href'], None) for link in links if re.match(r'^https://technode.com/\d{4}/\d{2}/\d{2}/', link['href'])]
+            elif 'techcrunch' in self.base_url:
+                filtered_urls = [(link['href'], None) for link in links if re.match(r'^https://techcrunch.com/\d{4}/\d{2}/\d{2}/', link['href'])]
             else:
                 filtered_urls = []
             filtered_urls = list(set(filtered_urls))
@@ -244,6 +275,62 @@ class NewsParsing:
                     time_published = f"{day}.{month}.{year}"
                 source = 'metalinfo'
 
+            elif 'theverge' in self.base_url:
+                title = soup.find('h1').get_text(strip=True) if soup.find('h1') else 'No title'
+                script_tag = soup.find('script', type='application/ld+json')
+                if script_tag:
+                    json_data = json.loads(script_tag.string)
+                    text = json_data.get('articleBody', '')
+                else:
+                    text = ''
+                time_published = soup.find('meta', property='article:published_time')['content'] if soup.find('meta', property='article:published_time') else None
+                date_pattern = re.compile(r'(\d{4})-(\d{2})-(\d{2})')
+                match = date_pattern.search(time_published)
+                if match:
+                    year = match.group(1)
+                    month = match.group(2)
+                    day = match.group(3)
+                    time_published = f"{day}.{month}.{year}"
+                source = 'theverge'
+                text = re.sub(r'[\u2000-\u200F]', ' ', text)
+                text = text.replace('\xa0',' ').replace('\n', ' ')
+                title = title.replace('\xa0',' ').replace('| TechCrunch', '').replace('\n', ' ')
+                if not 'No title' in title:
+                    text = re.sub(r'\[.*?\]', '', text)
+                    text = tr_AN_sl_A_tor_of_L_abels(text)
+                    title = tr_AN_sl_A_tor_of_L_abels(title)
+                    print(link, title)
+                    return [source, link, title, time_published, None, text]
+                else:
+                    print("Фигня", link, title)
+                    return None
+
+            elif 'technode' in self.base_url:
+                title = soup.find('meta', property='og:title')['content'] if soup.find('meta', property='og:title') else 'No title'
+                article_block = soup.find('div', class_='entry-content')
+                time_published = soup.find('meta', property="article:modified_time")['content'] if soup.find('meta', property="article:modified_time") else None
+                date_pattern = re.compile(r'(\d{4})-(\d{2})-(\d{2})')
+                match = date_pattern.search(time_published)
+                if match:
+                    year = match.group(1)
+                    month = match.group(2)
+                    day = match.group(3)
+                    time_published = f"{day}.{month}.{year}"
+                source = 'technode'
+
+            elif 'techcrunch' in self.base_url:
+                title = soup.find('meta', property='og:title')['content'] if soup.find('meta', property='og:title') else 'No title'
+                article_block = soup.find('div', class_='entry-content wp-block-post-content is-layout-flow wp-block-post-content-is-layout-flow')
+                time_published = soup.find('meta', property="article:published_time")['content'] if soup.find('meta', property="article:published_time") else None
+                date_pattern = re.compile(r'(\d{4})-(\d{2})-(\d{2})')
+                match = date_pattern.search(time_published)
+                if match:
+                    year = match.group(1)
+                    month = match.group(2)
+                    day = match.group(3)
+                    time_published = f"{day}.{month}.{year}"
+                source = 'techcrunch'
+
             if not article_block:
                 return None
             text = ''
@@ -263,6 +350,10 @@ class NewsParsing:
             text = text.replace('\xa0',' ')
             title = title.replace('\xa0',' ')
             keywords = keywords.replace('\xa0',' ')
+            if 'techcrunch' in self.base_url or 'technode' in self.base_url:
+                text = tr_AN_sl_A_tor_of_L_abels(text)
+                title = tr_AN_sl_A_tor_of_L_abels(title)
+                keywords = tr_AN_sl_A_tor_of_L_abels(keywords)
             return [source, link, title, time_published, keywords, text]
         except Exception as e:
             return None
@@ -302,6 +393,12 @@ def fetch_all_links(base_url, start, end, step=1):
                        for date, page in itertools.product(date_combinations, range(1, 3))]
         elif 'metalinfo' in base_url:
             futures = [executor.submit(NewsParsing(base_url).link_parsing, f"{base_url}list.html?pn={i}") for i in range(start, end, step)]
+        elif 'theverge' in base_url:
+            futures = [executor.submit(NewsParsing(base_url).link_parsing, f"{base_url}{i}") for i in range(start, end, step)]
+        elif 'technode' in base_url:
+            futures = [executor.submit(NewsParsing(base_url).link_parsing, f"{base_url}page/{i}/") for i in range(start, end, step)]
+        elif 'techcrunch' in base_url:
+            futures = [executor.submit(NewsParsing(base_url).link_parsing, f"{base_url}/page/{i}/") for i in range(start, end, step)]
         for future in futures:
             links.extend(future.result())
     return set(links)
@@ -315,25 +412,40 @@ current_year = datetime.now().year
 
 cnews_url = 'https://www.cnews.ru/archive/type_top_lenta_articles'
 links_1 = fetch_all_links(cnews_url, 1, 11)
-cnews_parser_1 = NewsParsing(cnews_url)
-news_df_1 = cnews_parser_1.parse_news(links_1)
+news_parser_1 = NewsParsing(cnews_url)
+news_df_1 = news_parser_1.parse_news(links_1)
 
 habr_url = 'https://habr.com/ru/news'
 links_2 = fetch_all_links(habr_url, 1, 11)
-cnews_parser_2 = NewsParsing(habr_url)
-news_df_2 = cnews_parser_2.parse_news(links_2)
+news_parser_2 = NewsParsing(habr_url)
+news_df_2 = news_parser_2.parse_news(links_2)
 
 tadviser_url = 'https://www.tadviser.ru/index.php/Архив_новостей?cdate='
 links_3 = fetch_all_links(tadviser_url, 0, days_to_analyze)
-cnews_parser_3 = NewsParsing(tadviser_url)
-news_df_3 = cnews_parser_3.parse_news(links_3)
+news_parser_3 = NewsParsing(tadviser_url)
+news_df_3 = news_parser_3.parse_news(links_3)
 
 interfax_url = 'https://www.interfax.ru/news/2024/'
 links_4 = fetch_all_links(interfax_url, 0, days_to_analyze)
-cnews_parser_4 = NewsParsing(interfax_url)
-news_df_4 = cnews_parser_4.parse_news(links_4)
+news_parser_4 = NewsParsing(interfax_url)
+news_df_4 = news_parser_4.parse_news(links_4)
 
 metalinfo_url = 'https://www.metalinfo.ru/ru/news/'
 links_5 = fetch_all_links(metalinfo_url, 0, 11)
-cnews_parser_5 = NewsParsing(metalinfo_url)
-news_df_5 = cnews_parser_5.parse_news(links_5)
+news_parser_5 = NewsParsing(metalinfo_url)
+news_df_5 = news_parser_5.parse_news(links_5)
+
+theverge_url = 'https://www.theverge.com/archives/'
+links_6 = fetch_all_links(theverge_url, 1, 4)
+news_parser_6 = NewsParsing(theverge_url)
+news_df_6 = news_parser_6.parse_news(links_6)
+
+technode_url = 'https://technode.com/category/news-feed/'
+links_7 = fetch_all_links(technode_url, 1, 3)
+news_parser_7 = NewsParsing(technode_url)
+news_df_7 = news_parser_7.parse_news(links_7)
+
+techcrunch_url = 'https://techcrunch.com'
+links_8 = fetch_all_links(techcrunch_url, 1, 3)
+news_parser_8 = NewsParsing(techcrunch_url)
+news_df_8 = news_parser_8.parse_news(links_8)
