@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Панель управления</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Панель управления Smart News</h1>
+        <form action="{{ url_for('save_description') }}" method="post">
+            <label for="description">Опишите требуемые новости тут:</label>
+            <textarea id="description" name="description" style="resize: none;">{{ description }}</textarea>
+            <button type="submit">Сохранить описание новостей</button>
+        </form>
+
+        <form action="{{ url_for('upload') }}" method="post" enctype="multipart/form-data">
+            <div class="file-upload">
+                <label for="file">Загрузить получателей:</label>
+                <input type="file" id="file" name="file">
+                <input type="hidden" name="description" value="{{ description }}">
+                <button type="submit">Загрузить</button>
+            </div>
+        </form>
+
+        <form action="{{ url_for('help') }}" method="get">
+            <button type="submit">Помощь</button>
+        </form>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash {{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+    <script>
+        setTimeout(function() {
+            var flashes = document.querySelectorAll('.flash');
+            flashes.forEach(function(flash) {
+                flash.style.display = 'none';
+            });
+        }, 60000);
+    </script>
+</body>
+</html>
