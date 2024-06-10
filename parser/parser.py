@@ -296,8 +296,8 @@ class NewsParsing:
                 title = title.replace('\xa0',' ').replace('| TechCrunch', '').replace('\n', ' ')
                 if not 'No title' in title:
                     text = re.sub(r'\[.*?\]', '', text)
-                    text = translate(text)
-                    title = translate(title)
+                    # text = translate(text)
+                    # title = translate(title)
                     print(link, title)
                     return [source, link, title, time_published, None, text]
                 else:
@@ -347,9 +347,10 @@ class NewsParsing:
             title = title.replace('\xa0',' ')
             keywords = keywords.replace('\xa0',' ')
             if 'techcrunch' in self.base_url or 'technode' in self.base_url:
-                text = translate(text)
-                title = translate(title)
-                keywords = translate(keywords)
+                # text = translate(text)
+                # title = translate(title)
+                # keywords = translate(keywords)
+                pass
             return [source, link, title, time_published, keywords, text]
         except Exception as e:
             return None
@@ -427,10 +428,10 @@ links_5 = fetch_all_links(metalinfo_url, 0, 3)
 news_parser_5 = NewsParsing(metalinfo_url)
 news_df_5 = news_parser_5.parse_news(links_5)
 
-theverge_url = 'https://www.theverge.com/archives/'
-links_6 = fetch_all_links(theverge_url, 1, 3)
-news_parser_6 = NewsParsing(theverge_url)
-news_df_6 = news_parser_6.parse_news(links_6)
+# theverge_url = 'https://www.theverge.com/archives/'
+# links_6 = fetch_all_links(theverge_url, 1, 3)
+# news_parser_6 = NewsParsing(theverge_url)
+# news_df_6 = news_parser_6.parse_news(links_6)
 
 # technode_url = 'https://technode.com/category/news-feed/'
 # links_7 = fetch_all_links(technode_url, 1, 3)
