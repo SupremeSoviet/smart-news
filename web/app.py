@@ -1,14 +1,17 @@
 from flask import Flask, render_template, request, redirect, url_for, flash
 import dotenv
 import os
+import hashlib
+import pandas as pd
+import re
+
+dotenv.load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = 'your_secret_key'
+key = os.getenv("FLASK_KEY")
+app.secret_key = key
 
-# Предопределенный ключ авторизации
-dotenv.load_dotenv()
-AUTH_KEY = os.getenv("AUTH_KEY")
-
+AUTH_KEY_HASH = os.getenv("AUTH_KEY_HASH")
 
 @app.route('/')
 def auth():
@@ -18,7 +21,7 @@ def auth():
 @app.route('/login', methods=['POST'])
 def login():
     key = request.form.get('auth_key')
-    if key == AUTH_KEY:
+    if hashlib.sha256(key.encode('utf-8')).hexdigest() == AUTH_KEY_HASH:
         flash('Авторизация прошла успешна!', 'success')
         return redirect(url_for('dashboard'))
     else:
@@ -47,12 +50,14 @@ def upload():
     if file and file.filename.endswith('.txt'):
         filename = os.path.join('uploads', file.filename)
         file.save(filename)
-        if check_accs(filename):
+        is_correct, ans = check_accs(filename)
+        if is_correct:
             flash('Успешно загружено', 'success')
+            mails = ans
         else:
-            flash('Ошибка загрузки', 'error')
+            flash('Ошибка загрузки: ' + ans, 'error')
     else:
-        flash('Неверный формат файла. Загрузите .txt файл', 'error')
+        flash('Неверный формат файла. Загрузите .txt или .xlsx файл', 'error')
 
     return redirect(url_for('dashboard', description=description))
 
@@ -82,9 +87,36 @@ def help():
     return redirect(url_for('dashboard'))
 
 
-
 def check_accs(filename):
-    return True
+    if not os.path.isfile(filename):
+        return False, "Файл не существует"
+
+    file_extension = os.path.splitext(filename)[1]
+
+    if file_extension not in ['.txt', '.xlsx']:
+        return False, "Расширение файла не поддерживается"
+
+    try:
+        emails = []
+        if file_extension == '.txt':
+            with open(filename, 'r') as file:
+                emails = [line.strip() for line in file]
+        elif file_extension == '.xlsx':
+            df = pd.read_excel(filename)
+            emails = df[df.columns[0]].dropna().astype(str).tolist()
+
+        email_regex = re.compile(
+            r'(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)'
+        )
+
+        invalid_emails = [email for email in emails if not email_regex.match(email)]
+
+        if invalid_emails:
+            return False, f"Неверный формат почты: {invalid_emails}"
+
+        return True, emails
+    except Exception as e:
+        return False, f"Ошибка чтения файла"
 
 
 if __name__ == '__main__':

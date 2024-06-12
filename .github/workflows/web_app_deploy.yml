@@ -7,7 +7,6 @@ on:
     paths:
       - 'web/**'
 
-
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
@@ -40,4 +39,4 @@ jobs:
 
     - name: Deploy to Yandex Cloud
       run: |
-        ssh -o StrictHostKeyChecking=no ${{ secrets.USER }}@${{ secrets.VM_IP }} 'docker pull ${{ secrets.DOCKER_LOGIN }}/webapp:latest && docker stop webapp || true && docker rm webapp || true && docker run -d -p 80:5000 --name webapp ${{ secrets.DOCKER_LOGIN }}/webapp:latest'
+        ssh -o StrictHostKeyChecking=no ${{ secrets.USER }}@${{ secrets.VM_IP }} 'docker pull ${{ secrets.DOCKER_LOGIN }}/webapp:latest && docker stop webapp || true && docker rm webapp || true && docker run -d -p 80:5000 --name webapp -e FLASK_KEY=${{ secrets.FLASK_KEY }} -e AUTH_KEY_HASH=${{ secrets.AUTH_KEY_HASH }} ${{ secrets.DOCKER_LOGIN }}/webapp:latest'
