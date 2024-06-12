@@ -86,6 +86,7 @@ def check_accs(filename):
     return True
 
 
+
 if __name__ == '__main__':
     if not os.path.exists('uploads'):
         os.makedirs('uploads')
