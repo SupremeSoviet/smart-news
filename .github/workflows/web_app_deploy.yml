@@ -1,14 +1,12 @@
-name: Deploy Web App to Yandex Cloud
+name: CI/CD Pipeline
 
 on:
   push:
     branches:
-      - master
-    paths:
-      - 'web/**'
+      - main
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
@@ -20,23 +18,23 @@ jobs:
       with:
         ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y python3 python3-pip
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v1
 
-    - name: Transfer files
-      run: |
-        rsync -avz -e "ssh -o StrictHostKeyChecking=no" . user@your-vm-ip:/path/to/remote/app
+    - name: Login to DockerHub
+      uses: docker/login-action@v1
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
 
-    - name: Install Python dependencies
-      run: |
-        ssh -o StrictHostKeyChecking=no user@your-vm-ip 'cd /path/to/remote/app && pip3 install -r requirements.txt'
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v2
+      with:
+        context: .
+        file: ./Dockerfile
+        push: true
+        tags: ${{ secrets.DOCKER_USERNAME }}/webapp:latest
 
-    - name: Restart Gunicorn
+    - name: Deploy to Yandex Cloud
       run: |
-        ssh -o StrictHostKeyChecking=no user@your-vm-ip 'sudo systemctl restart yourapp'
-
-    - name: Restart Nginx
-      run: |
-        ssh -o StrictHostKeyChecking=no user@your-vm-ip 'sudo systemctl restart nginx'
+        ssh -o StrictHostKeyChecking=no ${{ secrets.USER }}@${{ secrets.VM_IP }} 'docker pull ${{ secrets.DOCKER_USERNAME }}/webapp:latest && docker stop webapp || true && docker rm webapp || true && docker run -d -p 80:5000 --name webapp ${{ secrets.DOCKER_USERNAME }}/webapp:latest'
