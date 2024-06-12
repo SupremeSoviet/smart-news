@@ -3,7 +3,10 @@ name: Web App Deploy
 on:
   push:
     branches:
-      - main
+      - master
+    paths:
+      - 'web/**'
+
 
 jobs:
   build-and-deploy:
