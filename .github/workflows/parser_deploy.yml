@@ -1,4 +1,4 @@
-name: Deploy to Yandex Cloud
+name: Parser Deploy
 
 on:
   push:
