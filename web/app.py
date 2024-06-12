@@ -82,7 +82,6 @@ def help():
     return redirect(url_for('dashboard'))
 
 
-
 def check_accs(filename):
     return True
 
