@@ -27,7 +27,7 @@ jobs:
     - name: Login to DockerHub
       uses: docker/login-action@v2
       with:
-        username: ${{ secrets.DOCKER_USERNAME }}
+        username: ${{ secrets.DOCKER_LOGIN }}
         password: ${{ secrets.DOCKER_PASSWORD }}
 
     - name: Build and push Docker image
@@ -36,8 +36,8 @@ jobs:
         context: ./web
         file: ./web/Dockerfile
         push: true
-        tags: ${{ secrets.DOCKER_USERNAME }}/webapp:latest
+        tags: ${{ secrets.DOCKER_LOGIN }}/webapp:latest
 
     - name: Deploy to Yandex Cloud
       run: |
-        ssh -o StrictHostKeyChecking=no ${{ secrets.USER }}@${{ secrets.VM_IP }} 'docker pull ${{ secrets.DOCKER_USERNAME }}/webapp:latest && docker stop webapp || true && docker rm webapp || true && docker run -d -p 80:5000 --name webapp ${{ secrets.DOCKER_USERNAME }}/webapp:latest'
+        ssh -o StrictHostKeyChecking=no ${{ secrets.USER }}@${{ secrets.VM_IP }} 'docker pull ${{ secrets.DOCKER_LOGIN }}/webapp:latest && docker stop webapp || true && docker rm webapp || true && docker run -d -p 80:5000 --name webapp ${{ secrets.DOCKER_LOGIN }}/webapp:latest'
