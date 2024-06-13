@@ -6,6 +6,7 @@ import hashlib
 import certifi
 import requests
 import itertools
+import numpy as np
 import pandas as pd
 
 from datetime import datetime
@@ -16,6 +17,17 @@ from urllib.parse import unquote
 from concurrent.futures import ThreadPoolExecutor
 
 load_dotenv()
+
+folder_id = os.getenv('FOLDER_ID')
+API_KEY = os.getenv('API_KEY')
+gpt_api_key = os.getenv('YANDEXGPT_API_KEY')
+FOLDER_ID = os.getenv('FOLDER_ID')
+doc_uri = f"emb://{FOLDER_ID}/text-search-doc/latest"
+yagpt3_uri = f'cls://{FOLDER_ID}/yandexgpt/latest'
+cls_url = "https://llm.api.cloud.yandex.net/foundationModels/v1/fewShotTextClassification"
+embed_url = "https://llm.api.cloud.yandex.net:443/foundationModels/v1/textEmbedding"
+headers = {"Content-Type": "application/json", "Authorization": f"Api-Key {gpt_api_key}", "x-folder-id": f"{FOLDER_ID}"}
+
 
 def download_certificate(url, save_path):
     response = requests.get(url)
@@ -41,31 +53,151 @@ def install_certificates(cert_dir):
 
     return ssl_context
 
-folder_id = os.getenv('FOLDER_ID')
-API_KEY = os.getenv('API_KEY')
-
 def translate(txt: str):
     body = {
         "targetLanguageCode": 'ru',
         "texts": [txt],
         "folderId": folder_id,
         "sourceLanguageCode": "en"
-        }
+    }
 
     headers = {
         "Content-Type": "application/json",
         "Authorization": "Api-key {0}".format(API_KEY)
-        }
+    }
 
     response = requests.post('https://translate.api.cloud.yandex.net/translate/v2/translate',
-    json = body,
-    headers = headers
-    )
+                             json=body,
+                             headers=headers
+                             )
 
     return response.json()['translations'][0]['text']
 
+
 cert_dir = 'certs'
 install_certificates(cert_dir)
+
+
+def get_embedding(text: str) -> np.array:
+    query_data = {
+        "modelUri": doc_uri,
+        "text": text,
+    }
+
+    return np.array(
+        requests.post(embed_url, json=query_data, headers=headers).json()["embedding"]
+    )
+
+def get_labels(text: str) -> np.array:
+
+    tags = ['Технологии',
+            'Инновации',
+            'Innovations',
+            'Trends',
+            'Цифровизация',
+            'Автоматизация',
+            'Цифровая трансформация',
+            'Digital solutions',
+            'Цифровые двойники',
+            'Digital twins',
+            'ИИ',
+            'AI',
+            'IoT',
+            'Интернет вещей',
+            'Big Data',
+            'Блокчейн',
+            'Process mining',
+            'Облачные технологии',
+            'Квантовые вычисления',
+            'Смарт - контракты',
+            'Робототехника',
+            'VR / AR / MR',
+            'Виртуальная и дополненная реальность',
+            'Генеративный',
+            'Распознавание',
+            'Искусственный интеллект',
+            'Машинное обучение',
+            'Глубокое обучение',
+            'Нейронные сети',
+            'Компьютерное зрение',
+            'Обработка естественного языка(NLP)',
+            'Reinforcement Learning',
+            'Low - code',
+            'No - code',
+            'Металлургический(ая)',
+            'Сталь',
+            'Steel',
+            'LLM',
+            'ML',
+            'ChatGPT',
+            'IT',
+            'Кибербезопасность',
+            'Стартапы',
+            'Startups',
+            'YandexGPT',
+            'LLAMA',
+            'GPT(GPT - 3, GPT - 4)',
+            'BERT',
+            'OpenAI',
+            'DALL-E',
+            'Transformer models',
+            'Generative Adversarial Networks(GAN)',
+            'DeepFake',
+            'Машинное зрение',
+            'Text - to - Image',
+            'Voice - to - text',
+            'Визуализация данных',
+            'Управление цепочками поставок',
+            'Снабжение',
+            'Технологии 5G',
+            'Суперкомпьютеры',
+            'DevOps',
+            'ФинТех',
+            'Token',
+            'Токен',
+            'Микросервисы',
+            'Kubernetes',
+            'API',
+            'Цифровой след',
+            'Цифровая идентификация',
+            'Интеллектуальный анализ данных',
+            'Продвинутая аналитика',
+            'Северсталь',
+            'Евраз',
+            'ММК',
+            'ОМК',
+            'Nippon',
+            'steel', ]
+
+    query_data = {
+        "modelUri": yagpt3_uri,
+        "completionOptions": {
+            "stream": False,
+            "temperature": 0,
+        },
+        "messages": [
+            {
+            'role': 'system',
+            'text': f"""
+            Ты отвечаешь в формате json, расставь тегам значения 0 или 1 в зависимости от приведенного текста. 
+            Вот теги:
+                {tags}
+            """
+            },
+            {
+            'role': 'user',
+            'text': text,
+            },
+        ]
+    }
+
+    response = requests.post('https://llm.api.cloud.yandex.net/foundationModels/v1/completion', json=query_data, headers=headers)
+    try:
+        result_dict = json.loads(response.json()['result']['alternatives'][0]['message']['text'])
+        return np.array([i for i in result_dict.keys() if (result_dict[i] and i in tags)])
+    except:
+        return None
+
 
 class NewsParsing:
     def __init__(self, base_url):
@@ -78,8 +210,9 @@ class NewsParsing:
         self.db_name = os.getenv('CLICKHOUSE_DB_NAME')
         self.table_name = os.getenv('CLICKHOUSE_TABLE_NAME')
 
-        print(self.clickhouse_host, self.clickhouse_user, self.clickhouse_password, self.clickhouse_port, self.cert_path)
-        
+        print(self.clickhouse_host, self.clickhouse_user, self.clickhouse_password, self.clickhouse_port,
+              self.cert_path)
+
         try:
             response = self.execute_query('SELECT version()')
             print(f"Connection to ClickHouse established successfully: {response}")
@@ -125,6 +258,9 @@ class NewsParsing:
         print('checked unique urls')
 
         if not filtered_dataframe.empty:
+            filtered_dataframe['embedding'] = filtered_dataframe['text'].apply(get_embedding)
+            filtered_dataframe['tags'] = filtered_dataframe['text'].apply(get_labels)
+
             first_url = filtered_dataframe.iloc[0]['url']
             hash_object = hashlib.md5(first_url.encode())
             file_name = f'{hash_object.hexdigest()}.csv'
@@ -163,7 +299,8 @@ class NewsParsing:
             soup = BeautifulSoup(html, 'html.parser')
             links = soup.find_all('a', href=True)
             if 'cnews' in self.base_url:
-                filtered_urls = [(link['href'], None) for link in links if link['href'].startswith('http://www.cnews.ru/news')]
+                filtered_urls = [(link['href'], None) for link in links if
+                                 link['href'].startswith('http://www.cnews.ru/news')]
             elif 'habr' in self.base_url:
                 filtered_urls = [('https://habr.com' + link['href'], None) for link in links if
                                  link['href'].startswith('/ru/news/') and not 'page' in link[
@@ -184,15 +321,17 @@ class NewsParsing:
                                      '/business/9') or link in links if
                                  link['href'].startswith('/russia/9') or link['href'].startswith('/world/9')]
             elif 'metalinfo' in self.base_url:
-                filtered_urls = [('https://www.metalinfo.ru' + link['href'], None) for link in links if 
+                filtered_urls = [('https://www.metalinfo.ru' + link['href'], None) for link in links if
                                  re.match(r'^/ru/news/\d+', link['href'])]
             elif 'theverge' in self.base_url:
-                filtered_urls = [('https://www.theverge.com' + link['href'], None) for link in links if 
+                filtered_urls = [('https://www.theverge.com' + link['href'], None) for link in links if
                                  link['href'].startswith('/2024/') and not 'Comments' in link['href']]
             elif 'technode' in self.base_url:
-                filtered_urls = [(link['href'], None) for link in links if re.match(r'^https://technode.com/\d{4}/\d{2}/\d{2}/', link['href'])]
+                filtered_urls = [(link['href'], None) for link in links if
+                                 re.match(r'^https://technode.com/\d{4}/\d{2}/\d{2}/', link['href'])]
             elif 'techcrunch' in self.base_url:
-                filtered_urls = [(link['href'], None) for link in links if re.match(r'^https://techcrunch.com/\d{4}/\d{2}/\d{2}/', link['href'])]
+                filtered_urls = [(link['href'], None) for link in links if
+                                 re.match(r'^https://techcrunch.com/\d{4}/\d{2}/\d{2}/', link['href'])]
             else:
                 filtered_urls = []
             filtered_urls = list(set(filtered_urls))
@@ -264,7 +403,8 @@ class NewsParsing:
             elif 'metalinfo' in self.base_url:
                 title = soup.find('h1').get_text(strip=True) if soup.find('h1') else 'No title'
                 article_block = soup.find('div', class_='news-body')
-                time_published = soup.find('meta', itemprop="datePublished")['content'] if soup.find('meta', itemprop="datePublished") else None
+                time_published = soup.find('meta', itemprop="datePublished")['content'] if soup.find('meta',
+                                                                                                     itemprop="datePublished") else None
                 date_pattern = re.compile(r'(\d{4})-(\d{2})-(\d{2})')
                 match = date_pattern.search(time_published)
                 if match:
@@ -282,7 +422,8 @@ class NewsParsing:
                     text = json_data.get('articleBody', '')
                 else:
                     text = ''
-                time_published = soup.find('meta', property='article:published_time')['content'] if soup.find('meta', property='article:published_time') else None
+                time_published = soup.find('meta', property='article:published_time')['content'] if soup.find('meta',
+                                                                                                              property='article:published_time') else None
                 date_pattern = re.compile(r'(\d{4})-(\d{2})-(\d{2})')
                 match = date_pattern.search(time_published)
                 if match:
@@ -292,8 +433,8 @@ class NewsParsing:
                     time_published = f"{day}.{month}.{year}"
                 source = 'theverge'
                 text = re.sub(r'[\u2000-\u200F]', ' ', text)
-                text = text.replace('\xa0',' ').replace('\n', ' ')
-                title = title.replace('\xa0',' ').replace('| TechCrunch', '').replace('\n', ' ')
+                text = text.replace('\xa0', ' ').replace('\n', ' ')
+                title = title.replace('\xa0', ' ').replace('| TechCrunch', '').replace('\n', ' ')
                 if not 'No title' in title:
                     text = re.sub(r'\[.*?\]', '', text)
                     # text = translate(text)
@@ -305,9 +446,11 @@ class NewsParsing:
                     return None
 
             elif 'technode' in self.base_url:
-                title = soup.find('meta', property='og:title')['content'] if soup.find('meta', property='og:title') else 'No title'
+                title = soup.find('meta', property='og:title')['content'] if soup.find('meta',
+                                                                                       property='og:title') else 'No title'
                 article_block = soup.find('div', class_='entry-content')
-                time_published = soup.find('meta', property="article:modified_time")['content'] if soup.find('meta', property="article:modified_time") else None
+                time_published = soup.find('meta', property="article:modified_time")['content'] if soup.find('meta',
+                                                                                                             property="article:modified_time") else None
                 date_pattern = re.compile(r'(\d{4})-(\d{2})-(\d{2})')
                 match = date_pattern.search(time_published)
                 if match:
@@ -318,9 +461,12 @@ class NewsParsing:
                 source = 'technode'
 
             elif 'techcrunch' in self.base_url:
-                title = soup.find('meta', property='og:title')['content'] if soup.find('meta', property='og:title') else 'No title'
-                article_block = soup.find('div', class_='entry-content wp-block-post-content is-layout-flow wp-block-post-content-is-layout-flow')
-                time_published = soup.find('meta', property="article:published_time")['content'] if soup.find('meta', property="article:published_time") else None
+                title = soup.find('meta', property='og:title')['content'] if soup.find('meta',
+                                                                                       property='og:title') else 'No title'
+                article_block = soup.find('div',
+                                          class_='entry-content wp-block-post-content is-layout-flow wp-block-post-content-is-layout-flow')
+                time_published = soup.find('meta', property="article:published_time")['content'] if soup.find('meta',
+                                                                                                              property="article:published_time") else None
                 date_pattern = re.compile(r'(\d{4})-(\d{2})-(\d{2})')
                 match = date_pattern.search(time_published)
                 if match:
@@ -335,17 +481,19 @@ class NewsParsing:
             text = ''
             paragraphs = article_block.find_all('p')
             for paragraph in paragraphs:
-                paragraph_text = paragraph.get_text(strip=True) if not paragraph.find('a') else ' '.join([text for text in paragraph.stripped_strings])
+                paragraph_text = paragraph.get_text(strip=True) if not paragraph.find('a') else ' '.join(
+                    [text for text in paragraph.stripped_strings])
                 text += ' ' + paragraph_text
-            keywords = soup.find('meta', attrs={'name': 'keywords'}).get('content') if soup.find('meta', attrs={'name': 'keywords'}) else ''
+            keywords = soup.find('meta', attrs={'name': 'keywords'}).get('content') if soup.find('meta', attrs={
+                'name': 'keywords'}) else ''
 
             if 'Å' in text or 'æ' in text or 'µ' in text:
                 return None
             text = re.sub(r'Москва\.\s.*?INTERFAX\.RU\s-\s', '', text)
             text = re.sub(r'[\u2000-\u200F]', ' ', text)
-            text = text.replace('\xa0',' ')
-            title = title.replace('\xa0',' ')
-            keywords = keywords.replace('\xa0',' ')
+            text = text.replace('\xa0', ' ')
+            title = title.replace('\xa0', ' ')
+            keywords = keywords.replace('\xa0', ' ')
             if 'techcrunch' in self.base_url or 'technode' in self.base_url:
                 # text = translate(text)
                 # title = translate(title)
@@ -354,6 +502,7 @@ class NewsParsing:
             return [source, link, title, time_published, keywords, text]
         except Exception as e:
             return None
+
     def parse_news(self, links):
         news_data = []
         k = 1
@@ -364,19 +513,21 @@ class NewsParsing:
                 k += 1
                 news_data.append(result)
 
-
         df = pd.DataFrame(news_data, columns=['source', 'url', 'title', 'time', 'keywords', 'text'])
         df.to_csv('test.csv', index=False)
         self.insert_dataframe(df, df.iloc[0, 0])
         return df
 
+
 def fetch_all_links(base_url, start, end, step=1):
     links = []
     with ThreadPoolExecutor(max_workers=10) as executor:
         if 'cnews' in base_url:
-            futures = [executor.submit(NewsParsing(base_url).link_parsing, f"{base_url}/page_{i}") for i in range(start, end, step)]
+            futures = [executor.submit(NewsParsing(base_url).link_parsing, f"{base_url}/page_{i}") for i in
+                       range(start, end, step)]
         elif 'habr' in base_url:
-            futures = [executor.submit(NewsParsing(base_url).link_parsing, f"{base_url}/page{i}/") for i in range(start, end, step)]
+            futures = [executor.submit(NewsParsing(base_url).link_parsing, f"{base_url}/page{i}/") for i in
+                       range(start, end, step)]
         elif 'tadviser' in base_url:
             today = datetime.now()
             dates = [(today - timedelta(days=i)).strftime("%-d.%-m.%Y") for i in range(start, end, step)]
@@ -384,18 +535,24 @@ def fetch_all_links(base_url, start, end, step=1):
         elif 'interfax' in base_url:
             today = datetime.now()
             date_combinations = [(today - timedelta(days=i)).strftime("%m/%d") for i in range(start, end, step)]
-            futures = [executor.submit(NewsParsing(base_url).link_parsing, f"{base_url}{date}/all/page_{page}") for date, page in itertools.product(date_combinations, range(1, 3))]
+            futures = [executor.submit(NewsParsing(base_url).link_parsing, f"{base_url}{date}/all/page_{page}") for
+                       date, page in itertools.product(date_combinations, range(1, 3))]
         elif 'metalinfo' in base_url:
-            futures = [executor.submit(NewsParsing(base_url).link_parsing, f"{base_url}list.html?pn={i}") for i in range(start, end, step)]
+            futures = [executor.submit(NewsParsing(base_url).link_parsing, f"{base_url}list.html?pn={i}") for i in
+                       range(start, end, step)]
         elif 'theverge' in base_url:
-            futures = [executor.submit(NewsParsing(base_url).link_parsing, f"{base_url}{i}") for i in range(start, end, step)]
+            futures = [executor.submit(NewsParsing(base_url).link_parsing, f"{base_url}{i}") for i in
+                       range(start, end, step)]
         elif 'technode' in base_url:
-            futures = [executor.submit(NewsParsing(base_url).link_parsing, f"{base_url}page/{i}/") for i in range(start, end, step)]
+            futures = [executor.submit(NewsParsing(base_url).link_parsing, f"{base_url}page/{i}/") for i in
+                       range(start, end, step)]
         elif 'techcrunch' in base_url:
-            futures = [executor.submit(NewsParsing(base_url).link_parsing, f"{base_url}/page/{i}/") for i in range(start, end, step)]
+            futures = [executor.submit(NewsParsing(base_url).link_parsing, f"{base_url}/page/{i}/") for i in
+                       range(start, end, step)]
         for future in futures:
             links.extend(future.result())
     return set(links)
+
 
 days_to_analyze = 5
 
@@ -404,12 +561,12 @@ current_month = datetime.now().month
 current_year = datetime.now().year
 
 cnews_url = 'https://www.cnews.ru/archive/type_top_lenta_articles'
-links_1 = fetch_all_links(cnews_url, 1, 3)
+links_1 = fetch_all_links(cnews_url, 1, 5)
 news_parser_1 = NewsParsing(cnews_url)
 news_df_1 = news_parser_1.parse_news(links_1)
 
 habr_url = 'https://habr.com/ru/news'
-links_2 = fetch_all_links(habr_url, 1, 3)
+links_2 = fetch_all_links(habr_url, 1, 5)
 news_parser_2 = NewsParsing(habr_url)
 news_df_2 = news_parser_2.parse_news(links_2)
 
@@ -424,7 +581,7 @@ news_parser_4 = NewsParsing(interfax_url)
 news_df_4 = news_parser_4.parse_news(links_4)
 
 metalinfo_url = 'https://www.metalinfo.ru/ru/news/'
-links_5 = fetch_all_links(metalinfo_url, 0, 3)
+links_5 = fetch_all_links(metalinfo_url, 0, 5)
 news_parser_5 = NewsParsing(metalinfo_url)
 news_df_5 = news_parser_5.parse_news(links_5)
 

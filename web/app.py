@@ -4,8 +4,140 @@ import os
 import hashlib
 import pandas as pd
 import re
+import json
+import requests
+import numpy as np
 
 dotenv.load_dotenv()
+
+gpt_api_key = os.getenv('API_KEY')
+FOLDER_ID = os.getenv('FOLDER_ID')
+doc_uri = f"emb://{FOLDER_ID}/text-search-doc/latest"
+yagpt3_uri = f'cls://{FOLDER_ID}/yandexgpt/latest'
+embed_url = "https://llm.api.cloud.yandex.net:443/foundationModels/v1/textEmbedding"
+completion_url = 'https://llm.api.cloud.yandex.net/foundationModels/v1/completion'
+headers = {"Content-Type": "application/json", "Authorization": f"Api-Key {gpt_api_key}", "x-folder-id": f"{FOLDER_ID}"}
+
+def get_labels(text: str) -> np.array:
+
+    tags = ['Технологии',
+            'Инновации',
+            'Innovations',
+            'Trends',
+            'Цифровизация',
+            'Автоматизация',
+            'Цифровая трансформация',
+            'Digital solutions',
+            'Цифровые двойники',
+            'Digital twins',
+            'ИИ',
+            'AI',
+            'IoT',
+            'Интернет вещей',
+            'Big Data',
+            'Блокчейн',
+            'Process mining',
+            'Облачные технологии',
+            'Квантовые вычисления',
+            'Смарт - контракты',
+            'Робототехника',
+            'VR / AR / MR',
+            'Виртуальная и дополненная реальность',
+            'Генеративный',
+            'Распознавание',
+            'Искусственный интеллект',
+            'Машинное обучение',
+            'Глубокое обучение',
+            'Нейронные сети',
+            'Компьютерное зрение',
+            'Обработка естественного языка(NLP)',
+            'Reinforcement Learning',
+            'Low - code',
+            'No - code',
+            'Металлургический(ая)',
+            'Сталь',
+            'Steel',
+            'LLM',
+            'ML',
+            'ChatGPT',
+            'IT',
+            'Кибербезопасность',
+            'Стартапы',
+            'Startups',
+            'YandexGPT',
+            'LLAMA',
+            'GPT(GPT - 3, GPT - 4)',
+            'BERT',
+            'OpenAI',
+            'DALL-E',
+            'Transformer models',
+            'Generative Adversarial Networks(GAN)',
+            'DeepFake',
+            'Машинное зрение',
+            'Text - to - Image',
+            'Voice - to - text',
+            'Визуализация данных',
+            'Управление цепочками поставок',
+            'Снабжение',
+            'Технологии 5G',
+            'Суперкомпьютеры',
+            'DevOps',
+            'ФинТех',
+            'Token',
+            'Токен',
+            'Микросервисы',
+            'Kubernetes',
+            'API',
+            'Цифровой след',
+            'Цифровая идентификация',
+            'Интеллектуальный анализ данных',
+            'Продвинутая аналитика',
+            'Северсталь',
+            'Евраз',
+            'ММК',
+            'ОМК',
+            'Nippon',
+            'steel', ]
+
+    query_data = {
+        "modelUri": yagpt3_uri,
+        "completionOptions": {
+            "stream": False,
+            "temperature": 0,
+        },
+        "messages": [
+            {
+            'role': 'system',
+            'text': f"""
+            Ты отвечаешь в формате json, расставь тегам значения 0 или 1 в зависимости от приведенного текста. 
+            Вот теги:
+                {tags}
+            """
+            },
+            {
+            'role': 'user',
+            'text': text,
+            },
+        ]
+    }
+
+    response = requests.post(completion_url, json=query_data, headers=headers)
+    try:
+        result_dict = json.loads(response.json()['result']['alternatives'][0]['message']['text'])
+        return np.array([i for i in result_dict.keys() if (result_dict[i] and i in tags)])
+    except:
+        return None
+
+def get_embedding(text: str) -> np.array:
+    query_data = {
+        "modelUri": doc_uri,
+        "text": text,
+    }
+
+    return np.array(
+        requests.post(embed_url, json=query_data, headers=headers).json()["embedding"]
+    )
+
 
 app = Flask(__name__)
 key = os.getenv("FLASK_KEY")
