@@ -126,7 +126,7 @@ def get_labels(text: str) -> np.array:
         result_dict = json.loads(response.json()['result']['alternatives'][0]['message']['text'])
         return np.array([i for i in result_dict.keys() if (result_dict[i] and i in tags)])
     except:
-        return None
+        return np.array([])
 
 def get_embedding(text: str) -> np.array:
     query_data = {
@@ -134,9 +134,12 @@ def get_embedding(text: str) -> np.array:
         "text": text,
     }
 
-    return np.array(
+    try:
+        return np.array(
         requests.post(embed_url, json=query_data, headers=headers).json()["embedding"]
-    )
+        )
+    except:
+        return np.array([])
 
 
 app = Flask(__name__)
