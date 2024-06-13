@@ -1,7 +1,9 @@
+
 import os
 import re
 import ssl
 import json
+import time
 import hashlib
 import certifi
 import requests
@@ -22,7 +24,7 @@ folder_id = os.getenv('FOLDER_ID')
 API_KEY = os.getenv('API_KEY')
 FOLDER_ID = os.getenv('FOLDER_ID')
 doc_uri = f"emb://{FOLDER_ID}/text-search-doc/latest"
-yagpt3_uri = f'cls://{FOLDER_ID}/yandexgpt/latest'
+yagpt3_uri = f'gpt://{FOLDER_ID}/yandexgpt/latest'
 cls_url = "https://llm.api.cloud.yandex.net/foundationModels/v1/fewShotTextClassification"
 embed_url = "https://llm.api.cloud.yandex.net:443/foundationModels/v1/textEmbedding"
 headers = {"Content-Type": "application/json", "Authorization": f"Api-Key {API_KEY}", "x-folder-id": f"{FOLDER_ID}"}
@@ -76,6 +78,8 @@ def translate(txt: str):
 cert_dir = 'certs'
 install_certificates(cert_dir)
 
+def serialize_embedding(embedding: np.array) -> str:
+    return '[' + ', '.join(map(str, embedding)) + ']'
 
 def get_embedding(text: str) -> np.array:
     query_data = {
@@ -84,15 +88,24 @@ def get_embedding(text: str) -> np.array:
     }
 
     try:
+        response = requests.post(embed_url, json=query_data, headers=headers)
+
+        if 'error' in dict(response.json()).keys():
+            print('Exceeded quota')
+            time.sleep(1)
+        else:
+            return np.array(response.json()['embedding'])
+
         return np.array(
         requests.post(embed_url, json=query_data, headers=headers).json()["embedding"]
         )
+
     except Exception as ex:
         print('embedding ex', ex)
         return np.array([])
 
 def get_labels(text: str) -> np.array:
-
+    print('Новый запрос')
     tags = ['Технологии',
             'Инновации',
             'Innovations',
@@ -195,9 +208,18 @@ def get_labels(text: str) -> np.array:
     }
 
     response = requests.post('https://llm.api.cloud.yandex.net/foundationModels/v1/completion', json=query_data, headers=headers)
+    print('Первичный запрос')
     try:
+        while 'error' in dict(response.json()):
+            print(1)
+            print(response.json()['error'])
+            time.sleep(1)
+            response = requests.post('https://llm.api.cloud.yandex.net/foundationModels/v1/completion', json=query_data,
+                                     headers=headers)
+
         result_dict = json.loads(response.json()['result']['alternatives'][0]['message']['text'])
         return np.array([i for i in result_dict.keys() if (result_dict[i] and i in tags)])
+
     except Exception as ex:
         print('labels ex', ex)
         return np.array([])
@@ -262,8 +284,17 @@ class NewsParsing:
         print('checked unique urls')
 
         if not filtered_dataframe.empty:
+            text = filtered_dataframe['text']
+            text = [txt if len(txt.split()) < 150 else txt.split()[:150] for txt in text]
+            filtered_dataframe['text'] = text
+
             filtered_dataframe['embedding'] = filtered_dataframe['text'].apply(get_embedding)
             filtered_dataframe['tags'] = filtered_dataframe['text'].apply(get_labels)
+
+            filtered_dataframe['embedding'] = filtered_dataframe['embedding'].apply(
+                lambda emb: "[" + ",".join(map(str, emb)) + "]")
+            filtered_dataframe['tags'] = filtered_dataframe['tags'].apply(
+                lambda tags: "[" + ",".join(f"'{tag}'" for tag in tags) + "]")
 
             first_url = filtered_dataframe.iloc[0]['url']
             hash_object = hashlib.md5(first_url.encode())

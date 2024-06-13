@@ -13,7 +13,7 @@ dotenv.load_dotenv()
 gpt_api_key = os.getenv('API_KEY')
 FOLDER_ID = os.getenv('FOLDER_ID')
 doc_uri = f"emb://{FOLDER_ID}/text-search-doc/latest"
-yagpt3_uri = f'cls://{FOLDER_ID}/yandexgpt/latest'
+yagpt3_uri = f'gpt://{FOLDER_ID}/yandexgpt/latest'
 embed_url = "https://llm.api.cloud.yandex.net:443/foundationModels/v1/textEmbedding"
 completion_url = 'https://llm.api.cloud.yandex.net/foundationModels/v1/completion'
 headers = {"Content-Type": "application/json", "Authorization": f"Api-Key {gpt_api_key}", "x-folder-id": f"{FOLDER_ID}"}
