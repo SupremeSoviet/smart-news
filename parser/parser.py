@@ -20,13 +20,12 @@ load_dotenv()
 
 folder_id = os.getenv('FOLDER_ID')
 API_KEY = os.getenv('API_KEY')
-gpt_api_key = os.getenv('YANDEXGPT_API_KEY')
 FOLDER_ID = os.getenv('FOLDER_ID')
 doc_uri = f"emb://{FOLDER_ID}/text-search-doc/latest"
 yagpt3_uri = f'cls://{FOLDER_ID}/yandexgpt/latest'
 cls_url = "https://llm.api.cloud.yandex.net/foundationModels/v1/fewShotTextClassification"
 embed_url = "https://llm.api.cloud.yandex.net:443/foundationModels/v1/textEmbedding"
-headers = {"Content-Type": "application/json", "Authorization": f"Api-Key {gpt_api_key}", "x-folder-id": f"{FOLDER_ID}"}
+headers = {"Content-Type": "application/json", "Authorization": f"Api-Key {API_KEY}", "x-folder-id": f"{FOLDER_ID}"}
 
 
 def download_certificate(url, save_path):
