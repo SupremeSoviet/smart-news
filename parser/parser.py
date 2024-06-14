@@ -235,7 +235,7 @@ class NewsParsing:
         self.cert_path = cert_dir + '/RootCA.pem'
         self.db_name = os.getenv('CLICKHOUSE_DB_NAME')
         self.table_name = os.getenv('CLICKHOUSE_TABLE_NAME')
-
+        print(self.db_name, self.table_name, API_KEY, get_labels('OpenAI'), get_embedding('OpenAI'))
         print(self.clickhouse_host, self.clickhouse_user, self.clickhouse_password, self.clickhouse_port,
               self.cert_path)
 
@@ -319,6 +319,8 @@ class NewsParsing:
                 )
                 print(f'inserting news from {source} finished {response.text}')
                 return response.text
+            except Exception as e:
+                print('inserting ex: ', e)
             finally:
                 if os.path.exists(file_name):
                     os.remove(file_name)
