@@ -280,12 +280,12 @@ class NewsParsing:
             filtered_dataframe['text'] = text
 
             filtered_dataframe['embedding'] = filtered_dataframe['text'].apply(get_embedding)
-            filtered_dataframe['tags'] = filtered_dataframe['text'].apply(get_labels)
+            # filtered_dataframe['tags'] = filtered_dataframe['text'].apply(get_labels)
 
             filtered_dataframe['embedding'] = filtered_dataframe['embedding'].apply(
                 lambda emb: "[" + ",".join(map(str, emb)) + "]")
-            filtered_dataframe['tags'] = filtered_dataframe['tags'].apply(
-                lambda tags: "[" + ",".join(f"'{tag}'" for tag in tags) + "]")
+            # filtered_dataframe['tags'] = filtered_dataframe['tags'].apply(
+            #     lambda tags: "[" + ",".join(f"'{tag}'" for tag in tags) + "]")
 
             print('start')
 
