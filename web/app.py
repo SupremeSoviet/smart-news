@@ -344,6 +344,7 @@ def set_interval():
 
 @app.route('/send_now', methods=['POST'])
 def send_now():
+    print('Start_sending_now')
     res = send_pdf()
     if res:
         flash('Рассылка отправлена', 'success')
