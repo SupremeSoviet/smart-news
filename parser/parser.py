@@ -91,8 +91,9 @@ def get_embedding(text: str) -> np.array:
         response = requests.post(embed_url, json=query_data, headers=headers)
 
         if 'error' in dict(response.json()).keys():
+            print(response.json()['error'])
             print('Exceeded quota')
-            time.sleep(1)
+            time.sleep(2)
         else:
             return np.array(response.json()['embedding'])
 
@@ -275,6 +276,7 @@ class NewsParsing:
         print('checked unique urls')
 
         if not filtered_dataframe.empty:
+            original_txt = filtered_dataframe['text']
             text = filtered_dataframe['text']
             text = [txt if len(txt.split()) < 150 else txt.split()[:150] for txt in text]
             filtered_dataframe['text'] = text
@@ -286,6 +288,8 @@ class NewsParsing:
                 lambda emb: "[" + ",".join(map(str, emb)) + "]")
             # filtered_dataframe['tags'] = filtered_dataframe['tags'].apply(
             #     lambda tags: "[" + ",".join(f"'{tag}'" for tag in tags) + "]")
+
+            filtered_dataframe['text'] = original_txt
 
             print('start')
 
