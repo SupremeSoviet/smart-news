@@ -296,7 +296,7 @@ def upload():
             flash('Успешно загружено', 'success')
             Sent_to = ans
             print(Sent_to)
-            path_to_mails = open('mail.txt', 'w')
+            path_to_mails = open('uploads/mail.txt', 'w')
             print(Sent_to, file=path_to_mails)
             path_to_mails.close()
         else:
@@ -414,8 +414,8 @@ def create_pdf(filename, data, style_Arial_path):
 
     story = []
 
-    max_width = 3.25 * inch  # урезаем ширину в 2 раза
-    max_height = 4.5 * inch  # урезаем высоту в 2 раза
+    max_width = 3.25 * inch
+    max_height = 4.5 * inch
 
     for index, row in data.iterrows():
         if 'сменим тему' in row['text']: continue
@@ -546,7 +546,7 @@ def send_pdf():
         email_body = f"<h1>Актуальный дайджест новостей:</h1>{html_content}"
 
         try:
-            with open('mail.txt', 'r') as mail_file:
+            with open('uploads/mail.txt', 'r') as mail_file:
                 mails = mail_file.read().strip()
                 Sent_to = ast.literal_eval(mails)
                 print(Sent_to)
