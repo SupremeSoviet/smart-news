@@ -113,7 +113,7 @@ def query_to_dataframe(result):
     return df[['source', 'url', 'title', 'time', 'text']]  # Select only required columns
 
 
-def get_top_df(text, ans):
+def get_top_df(text):
     embedding = get_embedding(text)
     query = f"""
     SELECT
@@ -132,11 +132,9 @@ def get_top_df(text, ans):
     try:
         result = execute_query(query)
         df = query_to_dataframe(result)
-        return df, ans
+        return df
     except Exception as ex:
         print('get top df ex: ', ex)
-        ans += 'get top df ex: ' + str(ex)
-        return pd.DataFrame(), ans
 
 
 def get_summary(text: str):
@@ -491,18 +489,17 @@ def send_email_with_attachment(to_email, subject, body, attachment_path):
         print(f'Failed to send email: {e}')
 
 def send_pdf():
-    ans = ''
     try:
-        ans += '1 '
+        print(1)
         descr_file = open('uploads/description.txt', 'r')
         descr = descr_file.read()
         descr_file.close()
-        ans += descr + ' '
-        ans += '2 '
 
-        df, ans = get_top_df(descr, ans)
+        print(2)
 
-        ans += '3 '
+        df = get_top_df(descr)
+
+        print(3)
 
         current_day = datetime.now().day
         current_month = datetime.now().month
@@ -579,10 +576,10 @@ def send_pdf():
             send_email_with_attachment(email, f"Дайджест новостей от {current_day}.{current_month}.{current_year}", email_body, pdf_path)
         print("PDF Sent")
 
-        return True, ans
+        return True, 1
     except Exception as ex:
         print(ex)
-        return False, ans
+        return False, ex
 
 if __name__ == '__main__':
     if not os.path.exists('uploads'):
