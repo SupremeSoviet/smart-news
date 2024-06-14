@@ -2,10 +2,12 @@ from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_apscheduler import APScheduler
 import dotenv
 import hashlib
+import ast
 import re
 import json
 import time
 import numpy as np
+import concurrent.futures
 import ssl
 import os
 import certifi
@@ -16,6 +18,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email import encoders
+from reportlab.lib.units import inch
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
@@ -26,6 +29,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfbase import pdfmetrics
 from reportlab.platypus import Image
 from datetime import datetime
+import base64
 
 dotenv.load_dotenv()
 
@@ -128,86 +132,7 @@ def get_top_df(text):
     return df
 
 
-def get_labels(text: str) -> np.array:
-
-    tags = ['Технологии',
-            'Инновации',
-            'Innovations',
-            'Trends',
-            'Цифровизация',
-            'Автоматизация',
-            'Цифровая трансформация',
-            'Digital solutions',
-            'Цифровые двойники',
-            'Digital twins',
-            'ИИ',
-            'AI',
-            'IoT',
-            'Интернет вещей',
-            'Big Data',
-            'Блокчейн',
-            'Process mining',
-            'Облачные технологии',
-            'Квантовые вычисления',
-            'Смарт - контракты',
-            'Робототехника',
-            'VR / AR / MR',
-            'Виртуальная и дополненная реальность',
-            'Генеративный',
-            'Распознавание',
-            'Искусственный интеллект',
-            'Машинное обучение',
-            'Глубокое обучение',
-            'Нейронные сети',
-            'Компьютерное зрение',
-            'Обработка естественного языка(NLP)',
-            'Reinforcement Learning',
-            'Low - code',
-            'No - code',
-            'Металлургический(ая)',
-            'Сталь',
-            'Steel',
-            'LLM',
-            'ML',
-            'ChatGPT',
-            'IT',
-            'Кибербезопасность',
-            'Стартапы',
-            'Startups',
-            'YandexGPT',
-            'LLAMA',
-            'GPT(GPT - 3, GPT - 4)',
-            'BERT',
-            'OpenAI',
-            'DALL-E',
-            'Transformer models',
-            'Generative Adversarial Networks(GAN)',
-            'DeepFake',
-            'Машинное зрение',
-            'Text - to - Image',
-            'Voice - to - text',
-            'Визуализация данных',
-            'Управление цепочками поставок',
-            'Снабжение',
-            'Технологии 5G',
-            'Суперкомпьютеры',
-            'DevOps',
-            'ФинТех',
-            'Token',
-            'Токен',
-            'Микросервисы',
-            'Kubernetes',
-            'API',
-            'Цифровой след',
-            'Цифровая идентификация',
-            'Интеллектуальный анализ данных',
-            'Продвинутая аналитика',
-            'Северсталь',
-            'Евраз',
-            'ММК',
-            'ОМК',
-            'Nippon',
-            'steel', ]
+def get_summary(text: str):
 
     query_data = {
         "modelUri": yagpt3_uri,
@@ -219,9 +144,7 @@ def get_labels(text: str) -> np.array:
             {
             'role': 'system',
             'text': f"""
-            Ты отвечаешь в формате json, расставь тегам значения 0 или 1 в зависимости от приведенного текста. 
-            Вот теги:
-                {tags}
+            Ты пересказываешь новость в форамте дайджеста, сохраняя действующие лица, даты и факты.
             """
             },
             {
@@ -233,11 +156,11 @@ def get_labels(text: str) -> np.array:
 
     response = requests.post(completion_url, json=query_data, headers=headers)
     try:
-        result_dict = json.loads(response.json()['result']['alternatives'][0]['message']['text'])
-        return np.array([i for i in result_dict.keys() if (result_dict[i] and i in tags)])
+        result = response.json()['result']['alternatives'][0]['message']['text']
+        return result
     except Exception as ex:
-        print('labels ex', ex)
-        return np.array([])
+        print('summary ex', ex)
+        return text
 
 def get_embedding(text: str) -> np.array:
     query_data = {
@@ -261,6 +184,64 @@ def get_embedding(text: str) -> np.array:
         print('embedding ex', ex)
         return np.array([])
 
+
+def generate_image_yandex(prompt, path):
+    prompt_data = {
+        "modelUri": f"art://{FOLDER_ID}/yandex-art/latest",
+        "generationOptions": {
+            "seed": 17
+        },
+        "messages": [
+            {
+                "weight": 1,
+                "text": prompt if len(prompt) < 500 else prompt[:500]
+            }
+        ]
+    }
+
+    headers = {
+        "Authorization": f"Api-Key {gpt_api_key}",
+        "Content-Type": "application/json"
+    }
+
+    response = requests.post(
+        "https://llm.api.cloud.yandex.net/foundationModels/v1/imageGenerationAsync",
+        headers=headers,
+        json=prompt_data
+    )
+
+    if response.status_code != 200:
+        raise Exception(f"Failed to start image generation: {response.status_code} {response.text}")
+
+    operation_id = response.json()['id']
+
+    # Ждем завершения операции
+    while True:
+        result_response = requests.get(
+            f"https://llm.api.cloud.yandex.net/operations/{operation_id}",
+            headers=headers
+        )
+
+        if result_response.status_code != 200:
+            raise Exception(f"Failed to get operation status: {result_response.status_code} {result_response.text}")
+
+        result_data = result_response.json()
+
+        if result_data.get('done'):
+            if 'response' in result_data:
+                break
+            elif 'error' in result_data:
+                raise Exception(f"Error in operation: {result_data['error']}")
+        else:
+            time.sleep(1)
+
+    image_base64 = result_response.json()['response']['image']
+
+    image_data = base64.b64decode(image_base64)
+    with open(f"{path}.jpeg", "wb") as file:
+        file.write(image_data)
+
+    print(f"Картинка успешно сохранена как {path}.jpeg")
 
 app = Flask(__name__)
 key = os.getenv("FLASK_KEY")
@@ -315,6 +296,9 @@ def upload():
             flash('Успешно загружено', 'success')
             Sent_to = ans
             print(Sent_to)
+            path_to_mails = open('mail.txt', 'w')
+            print(Sent_to, file=path_to_mails)
+            path_to_mails.close()
         else:
             flash('Ошибка загрузки: ' + ans, 'error')
     else:
@@ -351,7 +335,8 @@ def set_interval():
 
 @app.route('/send_now', methods=['POST'])
 def send_now():
-    if send_pdf():
+    res = send_pdf()
+    if res:
         flash('Рассылка отправлена', 'success')
     else:
         flash('Ошибка отправки', 'error')
@@ -399,12 +384,14 @@ def check_accs(filename):
         if invalid_emails:
             return False, f"Неверный формат почты: {invalid_emails}"
         if emails:
+            print(emails)
             return True, emails
         return False, f'Почты не найдены'
     except Exception as e:
         return False, f"Ошибка чтения файла"
 
-def create_pdf(filename, data):
+
+def create_pdf(filename, data, style_Arial_path):
     doc = SimpleDocTemplate(filename, pagesize=letter)
     styles = getSampleStyleSheet()
     styleN = styles['Normal']
@@ -427,6 +414,9 @@ def create_pdf(filename, data):
 
     story = []
 
+    max_width = 6.5 * inch
+    max_height = 9.0 * inch
+
     for index, row in data.iterrows():
         story.append(Paragraph(f"{row['title']}", styleH))
         story.append(Paragraph(f"<font color='green'><u>{row['source']}</u></font>", styleN))
@@ -435,8 +425,29 @@ def create_pdf(filename, data):
         story.append(Paragraph("<br></br>", styleN))
         story.append(Spacer(1, 12))
         story.append(Paragraph(f"{row['text']}", styleJ))
-        img = Image(img_path)
-        story.append(img)
+        story.append(Spacer(1, 12))
+
+        try:
+            img_path = f'{index}.jpeg'
+            img = Image(img_path)
+
+            # Получаем размеры изображения
+            img_width, img_height = img.wrap(0, 0)
+
+            # Вычисляем коэффициент масштабирования
+            scale = min(max_width / img_width, max_height / img_height, 1)
+
+            # Масштабируем изображение
+            img.drawHeight = img_height * scale
+            img.drawWidth = img_width * scale
+
+            story.append(Spacer(1, 12))
+            story.append(img)
+            story.append(Spacer(1, 12))
+        except Exception as ex:
+            print('inserting img ex: ', ex)
+            story.append(Spacer(1, 12))
+
         story.append(Paragraph("<br></br>", styleN))
 
     doc.build(story)
@@ -447,28 +458,23 @@ def send_email_with_attachment(to_email, subject, body, attachment_path):
     msg['To'] = to_email
     msg['Subject'] = subject
     msg.attach(MIMEText(body, 'html'))
-    print(1)
+
     with open(attachment_path, 'rb') as attachment:
         part = MIMEBase('application', 'octet-stream')
         part.set_payload(attachment.read())
     encoders.encode_base64(part)
     part.add_header('Content-Disposition', f'attachment; filename= {os.path.basename(attachment_path)}')
     msg.attach(part)
-    print(2)
+
     try:
 
         with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
             server.starttls()
             server.login(SMTP_USERNAME, SMTP_PASSWORD)
             server.sendmail(SMTP_USERNAME, to_email, msg.as_string())
-            print(3)
         print('Email sent successfully')
     except Exception as e:
         print(f'Failed to send email: {e}')
-
-def get_summary(txt):
-    pass
-
 
 def send_pdf():
     try:
@@ -483,8 +489,47 @@ def send_pdf():
         if current_day<10: current_day = '0'+str(current_day)
         if current_month<10: current_month = '0'+str(current_month)
         filtered_df = df[['source', 'url', 'title', 'time', 'text']]
+
+        def process_text(text):
+            summ = ''
+            words = text.split()
+            if (len(words) > 300):
+                for batch in range(0, len(words), 300):
+                    batch_text = ' '.join(words[batch:batch + 300])
+                    summ += get_summary(batch_text) + ' '
+            else:
+                summ = get_summary(text)
+            return summ.strip()
+
+        text = filtered_df['text']
+        summary = []
+
+        for i in range(len(text)):
+            summ = process_text(text[i])
+            summary.append(summ)
+
+        filtered_df['text'] = summary
+
+        batch_size = 10
+
+        for i in range(0, len(summary), batch_size):
+            batch_summaries = summary[i:i + batch_size]
+            indices = list(range(i, min(i + batch_size, len(summary))))
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=batch_size) as executor:
+                futures = {executor.submit(generate_image_yandex, batch_summaries[j], indices[j]): indices[j] for j in
+                           range(len(batch_summaries))}
+
+                for future in concurrent.futures.as_completed(futures):
+                    index = futures[future]
+                    try:
+                        future.result()
+                    except Exception as ex:
+                        print(f'Error generating image for index {index}: {ex}')
+
+
         pdf_filename = pdf_path
-        create_pdf(pdf_filename, filtered_df)
+        create_pdf(pdf_filename, filtered_df, style_Arial_path)
 
 
         html_content = ""
@@ -497,12 +542,22 @@ def send_pdf():
             html_content += "<hr>"
 
         email_body = f"<h1>Актуальный дайджест новостей:</h1>{html_content}"
-        print(Sent_to)
-        for email in ['van-7890@mail.ru', 'vanishedgrace@list.ru']:
-            print(1)
-            send_email_with_attachment(email, f"Дайджест новостей от {current_day}.{current_month}.{current_year}", email_body, pdf_path)
 
+        try:
+            with open('mail.txt', 'r') as mail_file:
+                mails = mail_file.read().strip()
+                Sent_to = ast.literal_eval(mails)
+                print(Sent_to)
+        except Exception as ex:
+            Sent_to = []
+            print('!', ex)
+
+        print(Sent_to)
+
+        for email in Sent_to:
+            send_email_with_attachment(email, f"Дайджест новостей от {current_day}.{current_month}.{current_year}", email_body, pdf_path)
         print("PDF Sent")
+
         return True
     except Exception as ex:
         print(ex)
