@@ -1,4 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, flash
+from flask_apscheduler import APScheduler
 import dotenv
 import os
 import hashlib
@@ -150,10 +151,17 @@ app.secret_key = key
 
 AUTH_KEY_HASH = os.getenv("AUTH_KEY_HASH")
 
+
+scheduler = APScheduler()
+scheduler.init_app(app)
+scheduler.start()
+
+mailing_interval = 7
+
+
 @app.route('/')
 def auth():
     return render_template('auth.html')
-
 
 @app.route('/login', methods=['POST'])
 def login():
@@ -165,12 +173,10 @@ def login():
         flash('Неверный ключ!', 'error')
         return redirect(url_for('auth'))
 
-
 @app.route('/dashboard')
 def dashboard():
     description = request.args.get('description', '')
     return render_template('dashboard.html', description=description)
-
 
 @app.route('/upload', methods=['POST'])
 def upload():
@@ -198,7 +204,6 @@ def upload():
 
     return redirect(url_for('dashboard', description=description))
 
-
 @app.route('/save_description', methods=['POST'])
 def save_description():
     description = request.form.get('description')
@@ -210,6 +215,29 @@ def save_description():
         flash('Введите описание', 'error')
     return redirect(url_for('dashboard', description=description))
 
+@app.route('/set_interval', methods=['POST'])
+def set_interval():
+    global mailing_interval
+    interval = request.form.get('interval')
+    if interval and interval.isdigit():
+        mailing_interval = int(interval)
+        try:
+            scheduler.remove_job('send_pdf_job')
+        except:
+            pass
+        scheduler.add_job(id='send_pdf_job', func=send_pdf, trigger='interval', days=mailing_interval)
+        flash('Интервал рассылки сохранен', 'success')
+    else:
+        flash('Введите корректный интервал', 'error')
+    return redirect(url_for('dashboard'))
+
+@app.route('/send_now', methods=['POST'])
+def send_now():
+    if send_pdf():
+        flash('Рассылка отправлена', 'success')
+    else:
+        flash('Ошибка отправки', 'error')
+    return redirect(url_for('dashboard'))
 
 @app.route('/help')
 def help():
@@ -219,6 +247,8 @@ def help():
     2. В панели управления введите описание новостей.
     3. Загрузите список получателей в текстовом формате.
     4. Сохраните описание новостей.
+    5. Установите интервал рассылки.
+    6. Отправьте рассылку сразу или подождите, пока она будет отправлена автоматически.
     """
     flash(help_message, 'info')
     return redirect(url_for('dashboard'))
@@ -255,8 +285,15 @@ def check_accs(filename):
     except Exception as e:
         return False, f"Ошибка чтения файла"
 
+def send_pdf():
+
+    print("PDF Sent")
+    return False
 
 if __name__ == '__main__':
     if not os.path.exists('uploads'):
         os.makedirs('uploads')
+
+    scheduler.add_job(id='send_pdf_job', func=send_pdf, trigger='interval', days=mailing_interval)
+
     app.run(debug=True)

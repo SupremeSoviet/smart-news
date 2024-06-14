@@ -27,7 +27,7 @@ label {
     font-weight: bold;
 }
 
-input[type="text"], input[type="file"], textarea {
+input[type="text"], input[type="file"], input[type="number"], textarea {
     width: 100%;
     padding: 10px;
     margin-top: 5px;
@@ -44,26 +44,34 @@ button {
     display: inline-block;
     margin-top: 10px;
     padding: 10px 20px;
-    background-color: #4CAF50;
+    background-color: rgb(176, 191, 254);
     color: white;
     border: none;
     border-radius: 4px;
     cursor: pointer;
     font-size: 16px;
+    font-weight: bold;
 }
 
 button:hover {
-    background-color: #45a049;
+    background-color: rgb(146, 161, 234);
+}
+
+.wide-button {
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .file-upload {
     display: flex;
     justify-content: center;
     align-items: center;
+    flex-direction: column;
 }
 
 .file-upload input[type="file"] {
     flex: 1;
+    margin-bottom: 10px;
 }
 
 .flash {

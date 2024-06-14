@@ -11,7 +11,7 @@
         <form action="{{ url_for('save_description') }}" method="post">
             <label for="description">Опишите требуемые новости тут:</label>
             <textarea id="description" name="description" style="resize: none;">{{ description }}</textarea>
-            <button type="submit">Сохранить описание новостей</button>
+            <button type="submit" class="wide-button">Сохранить описание новостей</button>
         </form>
 
         <form action="{{ url_for('upload') }}" method="post" enctype="multipart/form-data">
@@ -19,12 +19,22 @@
                 <label for="file">Загрузить получателей:</label>
                 <input type="file" id="file" name="file">
                 <input type="hidden" name="description" value="{{ description }}">
-                <button type="submit">Загрузить</button>
+                <button type="submit" class="wide-button">Загрузить</button>
             </div>
         </form>
 
+        <form action="{{ url_for('set_interval') }}" method="post">
+            <label for="interval">Выберите интервал рассылки (в днях):</label>
+            <input type="number" id="interval" name="interval" value="7">
+            <button type="submit" class="wide-button">Сохранить интервал рассылки</button>
+        </form>
+
+        <form action="{{ url_for('send_now') }}" method="post">
+            <button type="submit" class="wide-button">Отправить рассылку сейчас</button>
+        </form>
+
         <form action="{{ url_for('help') }}" method="get">
-            <button type="submit">Помощь</button>
+            <button type="submit" class="wide-button">Помощь</button>
         </form>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
