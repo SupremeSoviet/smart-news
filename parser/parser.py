@@ -211,8 +211,6 @@ def get_labels(text: str) -> np.array:
     print('Первичный запрос')
     try:
         while 'error' in dict(response.json()):
-            print(1)
-            print(response.json()['error'])
             time.sleep(1)
             response = requests.post('https://llm.api.cloud.yandex.net/foundationModels/v1/completion', json=query_data,
                                      headers=headers)
@@ -235,9 +233,6 @@ class NewsParsing:
         self.cert_path = cert_dir + '/RootCA.pem'
         self.db_name = os.getenv('CLICKHOUSE_DB_NAME')
         self.table_name = os.getenv('CLICKHOUSE_TABLE_NAME')
-        print(self.db_name, self.table_name, API_KEY, get_labels('OpenAI'), get_embedding('OpenAI'))
-        print(self.clickhouse_host, self.clickhouse_user, self.clickhouse_password, self.clickhouse_port,
-              self.cert_path)
 
         try:
             response = self.execute_query('SELECT version()')
@@ -270,12 +265,8 @@ class NewsParsing:
         for url in unique_urls:
             self.execute_query('SELECT 1')
 
-            print('executed SELECT 1 query')
-
             check_query = f"SELECT count() FROM {self.db_name}.{self.table_name} WHERE url = '{url}'"
             result = self.execute_query(check_query)
-
-            print('executed check_query')
 
             if int(result.strip()) > 0:
                 print(f"Record with URL {url} already exists. Removing from dataframe.")
@@ -296,6 +287,8 @@ class NewsParsing:
             filtered_dataframe['tags'] = filtered_dataframe['tags'].apply(
                 lambda tags: "[" + ",".join(f"'{tag}'" for tag in tags) + "]")
 
+            print('start')
+
             first_url = filtered_dataframe.iloc[0]['url']
             hash_object = hashlib.md5(first_url.encode())
             file_name = f'{hash_object.hexdigest()}.csv'
@@ -305,7 +298,7 @@ class NewsParsing:
             try:
                 with open(file_name, 'rb') as f:
                     csv_data = f.read()
-
+                print('inserting')
                 query = f'INSERT INTO {self.db_name}.{self.table_name} FORMAT CSV'
                 response = requests.post(
                     f'https://{self.clickhouse_host}:{self.clickhouse_port}',
