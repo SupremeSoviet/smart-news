@@ -346,10 +346,10 @@ def set_interval():
 def send_now():
     print('Start_sending_now')
     res = send_pdf()
-    if res:
+    if res[0]:
         flash('Рассылка отправлена', 'success')
     else:
-        flash('Ошибка отправки', 'error')
+        flash('Ошибка отправки ' + str(res[1]), 'error')
     return redirect(url_for('dashboard'))
 
 @app.route('/help')
@@ -576,10 +576,10 @@ def send_pdf():
             send_email_with_attachment(email, f"Дайджест новостей от {current_day}.{current_month}.{current_year}", email_body, pdf_path)
         print("PDF Sent")
 
-        return True
+        return True, 1
     except Exception as ex:
         print(ex)
-        return False
+        return False, ex
 
 if __name__ == '__main__':
     if not os.path.exists('uploads'):
