@@ -27,7 +27,7 @@ doc_uri = f"emb://{FOLDER_ID}/text-search-doc/latest"
 yagpt3_uri = f'gpt://{FOLDER_ID}/yandexgpt/latest'
 cls_url = "https://llm.api.cloud.yandex.net/foundationModels/v1/fewShotTextClassification"
 embed_url = "https://llm.api.cloud.yandex.net:443/foundationModels/v1/textEmbedding"
-headers = {"Content-Type": "application/json", "Authorization": f"Api-Key {API_KEY}", "x-folder-id": f"{FOLDER_ID}"}
+headers = {"Authorization": f"Api-Key {API_KEY}", "x-folder-id": f"{FOLDER_ID}"}
 
 
 def download_certificate(url, save_path):
@@ -78,8 +78,6 @@ def translate(txt: str):
 cert_dir = 'certs'
 install_certificates(cert_dir)
 
-def serialize_embedding(embedding: np.array) -> str:
-    return '[' + ', '.join(map(str, embedding)) + ']'
 
 def get_embedding(text: str) -> np.array:
     query_data = {
@@ -89,11 +87,9 @@ def get_embedding(text: str) -> np.array:
 
     try:
         response = requests.post(embed_url, json=query_data, headers=headers)
-
         if 'error' in dict(response.json()).keys():
             print(response.json()['error'])
-            print('Exceeded quota')
-            time.sleep(2)
+            time.sleep(1)
         else:
             return np.array(response.json()['embedding'])
 
@@ -276,11 +272,8 @@ class NewsParsing:
         print('checked unique urls')
 
         if not filtered_dataframe.empty:
-            original_txt = filtered_dataframe['text']
-            text = filtered_dataframe['text']
-            text = [txt if len(txt.split()) < 150 else txt.split()[:150] for txt in text]
-            filtered_dataframe['text'] = text
 
+            text = filtered_dataframe['text']
             filtered_dataframe['embedding'] = filtered_dataframe['text'].apply(get_embedding)
             # filtered_dataframe['tags'] = filtered_dataframe['text'].apply(get_labels)
 
@@ -288,8 +281,6 @@ class NewsParsing:
                 lambda emb: "[" + ",".join(map(str, emb)) + "]")
             # filtered_dataframe['tags'] = filtered_dataframe['tags'].apply(
             #     lambda tags: "[" + ",".join(f"'{tag}'" for tag in tags) + "]")
-
-            filtered_dataframe['text'] = original_txt
 
             print('start')
 
@@ -319,8 +310,9 @@ class NewsParsing:
             except Exception as e:
                 print('inserting ex: ', e)
             finally:
-                if os.path.exists(file_name):
-                    os.remove(file_name)
+                pass
+                # if os.path.exists(file_name):
+                #     os.remove(file_name)
         else:
             return "No new records to insert."
 
