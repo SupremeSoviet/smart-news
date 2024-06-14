@@ -127,9 +127,12 @@ def get_top_df(text):
     ORDER BY cosine_similarity DESC
     LIMIT 20
     """
-    result = execute_query(query)
-    df = query_to_dataframe(result)
-    return df
+    try:
+        result = execute_query(query)
+        df = query_to_dataframe(result)
+        return df
+    except Exception as ex:
+        print('get top df ex: ', ex)
 
 
 def get_summary(text: str):
@@ -314,7 +317,7 @@ def upload():
 def save_description():
     description = request.form.get('description')
     if description:
-        with open('description.txt', 'w') as file:
+        with open('uploads/description.txt', 'w') as file:
             file.write(description)
         flash('Успешно', 'success')
     else:
@@ -484,11 +487,17 @@ def send_email_with_attachment(to_email, subject, body, attachment_path):
 
 def send_pdf():
     try:
-        descr_file = open('description.txt', 'r')
+        print(1)
+        descr_file = open('uploads/description.txt', 'r')
         descr = descr_file.read()
         descr_file.close()
 
+        print(2)
+
         df = get_top_df(descr)
+
+        print(3)
+
         current_day = datetime.now().day
         current_month = datetime.now().month
         current_year = datetime.now().year
