@@ -23,7 +23,7 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, PageBreak
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfbase import pdfmetrics
@@ -144,7 +144,7 @@ def get_summary(text: str):
             {
             'role': 'system',
             'text': f"""
-            Ты пересказываешь новость в форамте дайджеста, сохраняя действующие лица, даты и факты.
+            Ты пересказываешь новость в форамте дайджеста, сохраняя действующие лица, даты и факты. Без сложного форматирования, просто текст
             """
             },
             {
@@ -414,10 +414,15 @@ def create_pdf(filename, data, style_Arial_path):
 
     story = []
 
-    max_width = 6.5 * inch
-    max_height = 9.0 * inch
+    max_width = 3.25 * inch  # урезаем ширину в 2 раза
+    max_height = 4.5 * inch  # урезаем высоту в 2 раза
 
     for index, row in data.iterrows():
+        if 'сменим тему' in row['text']: continue
+
+        if index != 0:
+            story.append(PageBreak())
+
         story.append(Paragraph(f"{row['title']}", styleH))
         story.append(Paragraph(f"<font color='green'><u>{row['source']}</u></font>", styleN))
         story.append(Paragraph(f"Время: {row['time']}", styleN))
@@ -431,13 +436,10 @@ def create_pdf(filename, data, style_Arial_path):
             img_path = f'{index}.jpeg'
             img = Image(img_path)
 
-            # Получаем размеры изображения
             img_width, img_height = img.wrap(0, 0)
 
-            # Вычисляем коэффициент масштабирования
             scale = min(max_width / img_width, max_height / img_height, 1)
 
-            # Масштабируем изображение
             img.drawHeight = img_height * scale
             img.drawWidth = img_width * scale
 
