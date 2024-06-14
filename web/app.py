@@ -38,9 +38,11 @@ img_path = 'photo.webp'
 style_Arial_path = 'arialmt.ttf'
 SMTP_SERVER = 'smtp.mail.ru'
 SMTP_PORT = 587
-SMTP_USERNAME = os.getenv('MAIL_USER') # Почта, с которой отправляется
-SMTP_PASSWORD = os.getenv('MAIL_PWD') # Пароль почты (для доступа к почте внешним приложениям) с которой отправляется
+SMTP_USERNAME = os.getenv('MAIL_USER')
+SMTP_PASSWORD = os.getenv('MAIL_PWD')
 Sent_to = []
+
+print('START')
 
 gpt_api_key = os.getenv('API_KEY')
 FOLDER_ID = os.getenv('FOLDER_ID')
@@ -303,7 +305,7 @@ def upload():
             flash('Успешно загружено', 'success')
             Sent_to = ans
             print(Sent_to)
-            path_to_mails = open('uploads/mail.txt', 'w')
+            path_to_mails = open('uploads/mails.txt', 'w')
             print(Sent_to, file=path_to_mails)
             path_to_mails.close()
         else:
@@ -559,7 +561,7 @@ def send_pdf():
         email_body = f"<h1>Актуальный дайджест новостей:</h1>{html_content}"
 
         try:
-            with open('uploads/mail.txt', 'r') as mail_file:
+            with open('uploads/mails.txt', 'r') as mail_file:
                 mails = mail_file.read().strip()
                 Sent_to = ast.literal_eval(mails)
                 print(Sent_to)
