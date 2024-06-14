@@ -246,6 +246,10 @@ def generate_image_yandex(prompt, path):
 app = Flask(__name__)
 key = os.getenv("FLASK_KEY")
 app.secret_key = key
+app.config['UPLOAD_FOLDER'] = 'uploads'
+
+if not os.path.exists(app.config['UPLOAD_FOLDER']):
+    os.makedirs(app.config['UPLOAD_FOLDER'])
 
 AUTH_KEY_HASH = os.getenv("AUTH_KEY_HASH")
 
